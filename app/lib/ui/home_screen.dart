@@ -34,7 +34,14 @@ class HomeScreen extends ConsumerWidget {
           Text('Symposium',
               style: Sym.display(size: 21, weight: FontWeight.w600, color: Sym.ink)),
           const SizedBox(width: 10),
-          Text('a gathering of minds', style: Sym.mono(size: 10, color: Sym.inkFaint, spacing: 1)),
+          Flexible(
+            child: Text(
+              'a gathering of minds',
+              style: Sym.mono(size: 10, color: Sym.inkFaint, spacing: 1),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           const Spacer(),
           if (chat.tokPerSec > 0)
             Readout(

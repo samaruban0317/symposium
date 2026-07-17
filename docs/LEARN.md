@@ -150,7 +150,10 @@ returns the widget tree below it — think "a React component's render, in Dart.
   provider and rebuild automatically when it changes. This is the same job React's
   hooks/Redux do.
 - `http` — plain HTTP client. Deliberately boring; SSE streaming needs nothing fancier.
-- `google_fonts` — loads Spectral (serif) and IBM Plex Mono at runtime.
+- Fonts (Spectral serif, IBM Plex Mono) are **bundled in `assets/fonts/`** rather than
+  fetched at runtime: a local-LLM app must work offline, and staying plugin-free means
+  Windows builds don't require Developer Mode. (Phase 2's mDNS package *is* a plugin,
+  so enable Developer Mode — Settings → System → For developers — before then.)
 
 ### `lib/engine/ollama_engine.dart` — the only file that knows about servers
 

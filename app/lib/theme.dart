@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Symposium's visual identity: "lamplight academy".
 /// Warm ink-black surfaces, candlelight amber for the human side,
@@ -25,17 +24,17 @@ abstract class Sym {
   static const inkFaint = Color(0xFF57503F);
 
   static TextStyle display({double size = 24, Color color = ink, FontWeight weight = FontWeight.w500}) =>
-      GoogleFonts.spectral(fontSize: size, color: color, fontWeight: weight, height: 1.25);
+      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color, fontWeight: weight, height: 1.25);
 
   static TextStyle body({double size = 15, Color color = ink, double height = 1.55}) =>
-      GoogleFonts.spectral(fontSize: size, color: color, height: height);
+      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color, height: height);
 
   static TextStyle mono({double size = 12, Color color = inkDim, FontWeight weight = FontWeight.w400, double spacing = 0}) =>
-      GoogleFonts.ibmPlexMono(fontSize: size, color: color, fontWeight: weight, letterSpacing: spacing);
+      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color, fontWeight: weight, letterSpacing: spacing);
 
   /// Small-caps-style instrument label: `MODEL`, `TOK/S`, `CONTEXT`.
   static TextStyle label({Color color = inkDim, double size = 10}) =>
-      GoogleFonts.ibmPlexMono(fontSize: size, color: color, fontWeight: FontWeight.w600, letterSpacing: 2.0);
+      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color, fontWeight: FontWeight.w600, letterSpacing: 2.0);
 
   static ThemeData theme() => ThemeData(
         brightness: Brightness.dark,

@@ -11,12 +11,26 @@ dependencies:
     sdk: flutter
   flutter_riverpod: ^2.5.0
   http: ^1.2.0
-  google_fonts: ^6.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
+# Fonts are bundled (not fetched at runtime): the app must work fully offline,
+# and staying plugin-free keeps Windows builds working without Developer Mode.
 flutter:
   uses-material-design: true
+  fonts:
+    - family: Spectral
+      fonts:
+        - asset: assets/fonts/Spectral-Regular.ttf
+        - asset: assets/fonts/Spectral-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Spectral-SemiBold.ttf
+          weight: 600
+    - family: IBMPlexMono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Regular.ttf
+        - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+          weight: 600

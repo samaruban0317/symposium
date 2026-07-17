@@ -118,4 +118,117 @@ The app reads the response as a byte stream, splits on lines, JSON-decodes each
 screen. That is *all* "streaming" is. Tokens/sec is just counting those chunks
 against a stopwatch.
 
-*(Chapter 2 — the phase-1 app code walkthrough — is added below once the code exists.)*
+---
+
+## Chapter 2 — The phase-1 app, file by file
+
+Phase 1 delivers: streaming chat with any local model, one-click model install with
+live progress, an editable engine address (which already lets you point at a friend's
+PC by IP — mDNS in phase 2 just automates finding that IP), and a live tokens/sec
+readout. Nine Dart files, each with one job.
+
+### Dart in ninety seconds (if you know JS/Python)
+
+```dart
+final name = 'Samaruban';          // `final` = const-after-assignment (like JS const)
+String? maybe;                     // `?` = this can be null; Dart forces you to handle it
+Future<int> f() async => 42;       // async/await, exactly like JS
+Stream<String> words() async* {    // a Stream is an async sequence — like a Python
+  yield 'hello';                   // generator you can `await for` over
+}
+class A extends B { ... }          // classes, like Java/JS
+```
+
+The one unfamiliar thing is **widgets**: in Flutter *everything on screen is a widget*,
+and UI is built by composing them in code (no HTML). A widget's `build()` method
+returns the widget tree below it — think "a React component's render, in Dart."
+
+### The dependency choices (`app/pubspec.yaml`)
+
+- `flutter_riverpod` — state management. The app's "truths" (current endpoint, model
+  list, chat history, download progress) live in *providers*; widgets `watch` a
+  provider and rebuild automatically when it changes. This is the same job React's
+  hooks/Redux do.
+- `http` — plain HTTP client. Deliberately boring; SSE streaming needs nothing fancier.
+- `google_fonts` — loads Spectral (serif) and IBM Plex Mono at runtime.
+
+### `lib/engine/ollama_engine.dart` — the only file that knows about servers
+
+Read this file first; it is the heart of the architecture.
+
+- `listModels()` → GET `/api/tags` (Ollama-native, since OpenAI's API has no
+  "what's installed" endpoint that includes sizes/quantization).
+- `pull(model)` → POST `/api/pull`, then reads the response **as a stream of
+  newline-delimited JSON**: Ollama keeps the connection open and writes one progress
+  object per line (`{"status":"pulling…","total":…,"completed":…}`). The Dart chain
+  `res.stream.transform(utf8.decoder).transform(const LineSplitter())` turns raw bytes
+  → text → individual lines; each becomes a `PullEvent` the UI can render as a
+  progress bar. **This is the whole "install a model by clicking" feature** — a
+  download with progress reporting, nothing more magical.
+- `chat(...)` → POST `/v1/chat/completions` with `"stream": true` — the
+  OpenAI-compatible endpoint, so this exact code works against llama.cpp, vLLM,
+  LM Studio, or a friend's machine. It parses SSE `data:` lines (chapter 1) and emits
+  each `delta.content` piece into a `StreamController`. Cancellation = closing the
+  HTTP client mid-response; the server notices the dropped connection and stops
+  generating (that's all a "Stop" button ever does, even in ChatGPT).
+
+### `lib/state/app_state.dart` — the app's nervous system
+
+A chain of Riverpod providers, each derived from the previous:
+
+```
+endpointProvider ("http://127.0.0.1:11434")
+  └─ engineProvider (an OllamaEngine for that URL)
+       ├─ serverOnlineProvider (ping)
+       ├─ modelsProvider (the list)      ─ selectedModelProvider (first by default)
+       ├─ chatControllerProvider
+       └─ pullControllerProvider
+```
+
+Because everything derives from `endpointProvider`, **changing the URL in the UI
+tears down and rebuilds the whole chain automatically** — new server, new model list,
+same code. That's the Riverpod payoff.
+
+`ChatController.send()` is worth reading closely: it appends your message plus an
+*empty* assistant message, then `await for`-loops over the delta stream, replacing the
+last message with `content + delta` on every chunk. Each replacement triggers a widget
+rebuild → you see tokens appear. Tokens/sec is just `chunks / stopwatch` (Ollama sends
+roughly one token per chunk).
+
+### The UI (`lib/ui/`)
+
+- `home_screen.dart` — responsive shell. One `wide = width >= 720` check decides:
+  desktop gets a permanent sidebar, phone gets the same sidebar inside a drawer.
+  This is why the code is "already mobile-ready."
+- `sidebar.dart` — engine address tile (tap to edit — type a friend's
+  `192.168.x.x:11434` today!), model list with size/quantization details, download
+  progress banner, INSTALL MODEL button.
+- `chat_view.dart` — message list + composer. Messages aren't bubbles but
+  left-bordered blocks: amber border = you, teal = the model, with the model's name
+  as a small mono label (matters once split-screen arrives and *which model said
+  this* becomes important).
+- `pull_dialog.dart` — free-text model name plus a curated "good first models" list.
+- `widgets.dart` — the blinking `▌` streaming cursor, instrument readouts, status dot.
+- `theme.dart` — every color and text style in one place ("lamplight academy":
+  warm blacks, amber for the human side, phosphor teal for the machine side,
+  serif display over instrument mono).
+
+### Run it
+
+```
+cd app
+flutter pub get        # fetch dependencies (reads pubspec.yaml)
+flutter run -d windows # debug build, hot-reload enabled
+flutter build windows  # release .exe → build/windows/x64/runner/Release/
+```
+
+### Try this (exercises)
+
+1. Change `temperature` in `ollama_engine.dart` to `0.0`, hot-reload, and ask the same
+   question twice. Why are the answers now identical?
+2. Point the engine address at a friend's PC running `ollama serve` (they must set
+   `OLLAMA_HOST=0.0.0.0` so it listens beyond localhost — this is exactly what
+   phase 2's "host mode" toggle will automate).
+3. Add a fourth suggestion to `pull_dialog.dart` and hot-reload.
+
+*(Chapter 3 — host mode & discovery — arrives with phase 2.)*

@@ -1,0 +1,37 @@
+# --- Flutter / Dart (app/) ---
+app/.dart_tool/
+app/.packages
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/local.properties
+app/android/key.properties
+app/windows/flutter/ephemeral/
+app/ios/Flutter/ephemeral/
+app/linux/flutter/ephemeral/
+app/macos/Flutter/ephemeral/
+*.iml
+
+# --- Python (trainer/) ---
+trainer/.venv/
+trainer/__pycache__/
+**/__pycache__/
+*.py[cod]
+trainer/runs/
+trainer/checkpoints/
+trainer/data/
+
+# --- Models & large artifacts (never commit weights) ---
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# --- IDE / OS noise ---
+.idea/
+.vscode/
+*.log
+Thumbs.db
+desktop.ini

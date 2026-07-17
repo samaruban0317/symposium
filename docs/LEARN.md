@@ -234,4 +234,84 @@ flutter build windows  # release .exe → build/windows/x64/runner/Release/
    phase 2's "host mode" toggle will automate).
 3. Add a fourth suggestion to `pull_dialog.dart` and hot-reload.
 
-*(Chapter 3 — host mode & discovery — arrives with phase 2.)*
+---
+
+## Chapter 3 — Host mode & discovery (how your friend's PC appears in your sidebar)
+
+Phase 2 adds two abilities: **hosting** (one toggle shares this PC's models with the
+network, guarded by a 6-digit code) and **discovery** (other Symposiums on the same
+Wi-Fi appear under PEERS automatically). Three new files, all pure Dart
+(`lib/net/protocol.dart`, `discovery.dart`, `host_server.dart`) plus their state
+(`lib/state/net_state.dart`).
+
+### The two problems to solve
+
+1. *"What's my friend's IP?"* Nobody wants to type `192.168.1.47`. → **discovery**
+2. *"Ollama only answers its own PC."* Ollama binds to `localhost` on purpose —
+   security — so a friend literally cannot reach it. → **the host proxy**
+
+### Discovery: shouting into the room
+
+A LAN supports **UDP broadcast**: send one packet to the special address
+`255.255.255.255` and every device on the network receives it. Symposium's scanner
+broadcasts a tiny JSON question every 3 seconds:
+
+```json
+{"symposium": "discover", "v": 1}
+```
+
+Any Symposium in host mode is listening on UDP port 47474 and answers straight back
+(a normal unicast reply) with its name, port, model list, and whether it requires
+pairing. Hosts that stop replying for 10 s fall off your PEERS list. That's the whole
+protocol — ~120 lines in `discovery.dart`.
+
+*Why not mDNS/Bonjour (what Chromecast uses)?* mDNS matters when you must interoperate
+with other people's software. Both ends here run our code, so a hand-rolled scheme is
+simpler, needs no native plugin (Windows builds stay Developer-Mode-free), and is
+easier to debug — you can literally watch the packets in Wireshark.
+
+### Host mode: a reverse proxy with a doorman
+
+When you flip HOST ON NETWORK, Symposium starts an HTTP server on port 47475 that
+does only one thing: **forward every request to your local engine** at
+`127.0.0.1:11434`, streaming bytes in both directions (so SSE token streams pass
+through untouched). This is called a *reverse proxy* — same idea nginx uses in front
+of web apps.
+
+The doorman part: every request must carry the header `x-symposium-code: 123456`
+matching the code shown on the host's screen, or it gets `401 Unauthorized`. So your
+GPU is shared with friends who have the code, not with everyone on the coffee-shop
+Wi-Fi. The client sends the code automatically once you've entered it in the JOIN
+dialog (see `pairingCodeProvider` → `engineProvider` in `app_state.dart` — the
+elegant bit is that *nothing else changed*: the engine adapter just gained an extra
+header, and chat/models/pull all work over the proxy identically).
+
+First time you host, **Windows Firewall will ask** whether to allow Symposium on
+private networks — say yes; that's the OS-level permission for ports 47474/47475.
+
+### Trying it with two machines
+
+1. PC with models: flip HOST ON NETWORK, note the 6-digit code.
+2. Other device on the same Wi-Fi: the host appears under PEERS in seconds.
+   Tap → enter code → its models fill your sidebar. Chat away — tokens are generated
+   on the host's GPU and streamed to you.
+
+### Verifying without a second machine
+
+`app/tool/netcheck.dart` is a headless self-test that plays both roles at once:
+starts a real host, discovers it over real UDP, checks that missing/wrong codes are
+rejected, and streams a real completion through the proxy:
+
+```
+cd app
+dart run tool/netcheck.dart
+```
+
+### Android notes (first .apk)
+
+Two manifest lines matter (`android/app/src/main/AndroidManifest.xml`):
+`INTERNET` permission (obvious) and `usesCleartextTraffic="true"` — Android blocks
+plain `http://` by default, but LAN engines have no TLS certificates, so we opt in.
+Traffic never leaves your network.
+
+*(Chapter 4 — split screen & arena — arrives with phase 3.)*

@@ -17,14 +17,20 @@ import '../models/chat.dart';
 class OllamaEngine {
   final String baseUrl; // e.g. http://127.0.0.1:11434
 
-  OllamaEngine(this.baseUrl);
+  /// Extra headers on every request — carries the pairing code when talking
+  /// to another PC's Symposium host proxy.
+  final Map<String, String> headers;
+
+  OllamaEngine(this.baseUrl, {this.headers = const {}});
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 
   /// True if a server is answering at [baseUrl].
   Future<bool> ping() async {
     try {
-      final res = await http.get(_u('/api/version')).timeout(const Duration(seconds: 3));
+      final res = await http
+          .get(_u('/api/version'), headers: headers)
+          .timeout(const Duration(seconds: 3));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -32,7 +38,8 @@ class OllamaEngine {
   }
 
   Future<List<ModelInfo>> listModels() async {
-    final res = await http.get(_u('/api/tags')).timeout(const Duration(seconds: 5));
+    final res =
+        await http.get(_u('/api/tags'), headers: headers).timeout(const Duration(seconds: 5));
     if (res.statusCode != 200) {
       throw Exception('Server answered ${res.statusCode} when listing models');
     }
@@ -56,6 +63,7 @@ class OllamaEngine {
     try {
       final req = http.Request('POST', _u('/api/pull'))
         ..headers['Content-Type'] = 'application/json'
+        ..headers.addAll(headers)
         ..body = jsonEncode({'model': model});
       final res = await client.send(req);
       if (res.statusCode != 200) {
@@ -93,6 +101,7 @@ class OllamaEngine {
       try {
         final req = http.Request('POST', _u('/v1/chat/completions'))
           ..headers['Content-Type'] = 'application/json'
+          ..headers.addAll(headers)
           ..body = jsonEncode({
             'model': model,
             'stream': true,

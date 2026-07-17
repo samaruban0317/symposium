@@ -4,14 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../engine/ollama_engine.dart';
 import '../models/chat.dart';
+import '../net/protocol.dart';
 
-/// Where the app points. Phase 2 replaces hand-typed URLs with mDNS discovery,
-/// but the shape stays the same: an endpoint is just a base URL.
+/// Where the app points — an endpoint is just a base URL. It can be typed by
+/// hand or filled in by tapping a discovered peer in the sidebar.
 final endpointProvider = StateProvider<String>((ref) => 'http://127.0.0.1:11434');
 
-final engineProvider = Provider<OllamaEngine>(
-  (ref) => OllamaEngine(ref.watch(endpointProvider)),
-);
+/// Set when the endpoint is another PC's Symposium host proxy; sent as a
+/// header on every request. Null when talking to your own local engine.
+final pairingCodeProvider = StateProvider<String?>((ref) => null);
+
+final engineProvider = Provider<OllamaEngine>((ref) {
+  final code = ref.watch(pairingCodeProvider);
+  return OllamaEngine(
+    ref.watch(endpointProvider),
+    headers: code == null ? const {} : {kPairingHeader: code},
+  );
+});
 
 final serverOnlineProvider = FutureProvider<bool>(
   (ref) => ref.watch(engineProvider).ping(),

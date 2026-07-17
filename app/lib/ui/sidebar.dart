@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../net/protocol.dart';
 import '../state/app_state.dart';
+import '../state/net_state.dart';
 import '../theme.dart';
 import 'pull_dialog.dart';
 import 'widgets.dart';
@@ -143,6 +145,8 @@ class Sidebar extends ConsumerWidget {
                     ),
             ),
           ),
+          const Divider(height: 1),
+          const _NetworkSection(),
           if (pull != null) _PullBanner(pull: pull),
           const Divider(height: 1),
           Padding(
@@ -208,10 +212,190 @@ class Sidebar extends ConsumerWidget {
               var url = ctrl.text.trim();
               if (url.isEmpty) return;
               if (!url.startsWith('http')) url = 'http://$url';
+              ref.read(pairingCodeProvider.notifier).state = null;
               ref.read(endpointProvider.notifier).state = url.replaceAll(RegExp(r'/+$'), '');
               Navigator.pop(ctx);
             },
             child: Text('CONNECT', style: Sym.label(color: Sym.amber)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Host toggle + discovered peers. This is idea 2 from the original brief:
+/// a friend's PC flips the switch, your sidebar sees it appear, one tap
+/// (plus their 6-digit code) and you're using their models.
+class _NetworkSection extends ConsumerWidget {
+  const _NetworkSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final host = ref.watch(hostControllerProvider);
+    final peers = ref.watch(discoveredHostsProvider).valueOrNull ?? const [];
+    final hosting = host?.running == true;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('HOST ON NETWORK', style: Sym.label())),
+              SizedBox(
+                height: 24,
+                child: FittedBox(
+                  child: Switch(
+                    value: hosting,
+                    activeThumbColor: Sym.amber,
+                    activeTrackColor: Sym.amberDim,
+                    inactiveThumbColor: Sym.inkFaint,
+                    inactiveTrackColor: Sym.surfaceRaised,
+                    onChanged: (on) => on
+                        ? ref.read(hostControllerProvider.notifier).enable()
+                        : ref.read(hostControllerProvider.notifier).disable(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (hosting) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text('CODE', style: Sym.label(color: Sym.tealDim, size: 9)),
+                const SizedBox(width: 8),
+                SelectableText(
+                  host!.code,
+                  style: Sym.mono(size: 16, color: Sym.teal, weight: FontWeight.w600, spacing: 3),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text('friends need this to connect',
+                style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+          ] else if (host?.error != null) ...[
+            const SizedBox(height: 4),
+            Text(host!.error!, style: Sym.mono(size: 9.5, color: Sym.danger), maxLines: 2),
+          ],
+          const SizedBox(height: 10),
+          Text('PEERS', style: Sym.label()),
+          const SizedBox(height: 4),
+          if (peers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('listening for hosts…',
+                  style: Sym.mono(size: 10, color: Sym.inkFaint)),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 132),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final p in peers)
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () => _connectToPeer(context, ref, p),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.dns_outlined, size: 13, color: Sym.tealDim),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(p.name,
+                                        style: Sym.mono(
+                                            size: 11.5, color: Sym.ink, weight: FontWeight.w600),
+                                        overflow: TextOverflow.ellipsis),
+                                    Text(
+                                      '${p.address} · ${p.models.length} model${p.models.length == 1 ? '' : 's'}',
+                                      style: Sym.mono(size: 9.5, color: Sym.inkFaint),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (p.pairing)
+                                const Icon(Icons.lock_outline, size: 12, color: Sym.inkFaint),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _connectToPeer(BuildContext context, WidgetRef ref, DiscoveredHost peer) {
+    final ctrl = TextEditingController();
+
+    void connect(BuildContext ctx) {
+      if (peer.pairing && ctrl.text.trim().length != 6) return;
+      ref.read(pairingCodeProvider.notifier).state =
+          peer.pairing ? ctrl.text.trim() : null;
+      ref.read(endpointProvider.notifier).state = peer.baseUrl;
+      Navigator.pop(ctx);
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Sym.surfaceRaised,
+        title: Text('Join ${peer.name}', style: Sym.display(size: 20)),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (peer.models.isNotEmpty) ...[
+                Text('SERVING', style: Sym.label(size: 9)),
+                const SizedBox(height: 4),
+                Text(peer.models.join('\n'),
+                    style: Sym.mono(size: 11, color: Sym.inkDim), maxLines: 6),
+                const SizedBox(height: 12),
+              ],
+              if (peer.pairing) ...[
+                Text('Enter the 6-digit code shown on their screen:',
+                    style: Sym.mono(size: 11, color: Sym.inkDim)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  maxLength: 6,
+                  style: Sym.mono(size: 18, color: Sym.teal, spacing: 4),
+                  onSubmitted: (_) => connect(ctx),
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    hintText: '······',
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Sym.hairline),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: Sym.label()),
+          ),
+          TextButton(
+            onPressed: () => connect(ctx),
+            child: Text('JOIN', style: Sym.label(color: Sym.amber)),
           ),
         ],
       ),

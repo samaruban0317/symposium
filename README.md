@@ -17,8 +17,8 @@ training one — happens by clicking inside the app.**
 
 | Phase | Feature | Status |
 |-------|---------|--------|
-| 1 | Streaming chat with local models (Ollama engine), in-app model download, live tokens/sec | 🔨 in progress |
-| 2 | **Host mode + network radar** — your PC advertises its models on the LAN (mDNS); phones and other PCs discover and connect | planned |
+| 1 | Streaming chat with local models (Ollama engine), in-app model download, live tokens/sec | ✅ |
+| 2 | **Host mode + peer discovery** — one toggle shares your PC's engine on the LAN (UDP discovery + pairing-code proxy); phones and other PCs find it and connect | ✅ |
 | 3 | **Split screen & arena** — two models side by side, race them on one prompt, vote | planned |
 | 4 | Deep interactivity — token confidence heatmap, tap-to-see-alternatives, fork a conversation from any token, parameter lab | planned |
 | 5 | Bundled llama.cpp engine — fully self-contained, no external installs | planned |

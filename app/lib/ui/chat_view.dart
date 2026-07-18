@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import 'message_markdown.dart';
 import 'parameter_lab.dart';
+import 'persona/persona_chip.dart';
 import 'widgets.dart';
 
 class ChatView extends ConsumerStatefulWidget {
@@ -420,6 +421,8 @@ class _Composer extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // Speak as a persona: sets system prompt + knobs in one tap.
+          const PersonaChipButton(),
           Padding(
             padding: const EdgeInsets.all(6),
             child: IconButton(

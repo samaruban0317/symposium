@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/source.dart';
 import '../../net/protocol.dart';
 import '../../state/arena_state.dart';
 import '../../state/net_state.dart';
+import '../../state/sources_contract.dart';
 import '../../theme.dart';
 
 /// Dialog that binds one arena pane to a source: this device's engine, a
@@ -123,6 +125,28 @@ class _PanePickerDialogState extends ConsumerState<_PanePickerDialog> {
               ],
             ),
           ),
+        // Saved cloud providers work here too — auth rides on the URL via the
+        // engine-level registry, so a pane can duel your local model against
+        // GPT or Gemini with no extra plumbing.
+        ...(() {
+          final clouds = [
+            for (final s in ref.watch(savedSourcesProvider))
+              if (s.kind == SourceKind.cloud) s,
+          ];
+          if (clouds.isEmpty) return const <Widget>[];
+          return <Widget>[
+            const SizedBox(height: 14),
+            Text('CLOUD', style: Sym.label(size: 9)),
+            const SizedBox(height: 4),
+            for (final s in clouds)
+              _tile(
+                icon: Icons.cloud_outlined,
+                title: s.label,
+                subtitle: s.baseUrl.replaceFirst(RegExp('^https?://'), ''),
+                onTap: () => _bind(endpoint: s.baseUrl, name: s.label),
+              ),
+          ];
+        })(),
         const SizedBox(height: 14),
         Text('CUSTOM ADDRESS', style: Sym.label(size: 9)),
         const SizedBox(height: 4),

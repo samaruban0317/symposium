@@ -16,7 +16,7 @@ import '../net/protocol.dart';
 
 /// Which surface the home screen shows. Lives here rather than app_state so
 /// phase 3 stays purely additive.
-enum HomeTab { chat, arena }
+enum HomeTab { chat, arena, studio }
 
 final homeTabProvider = StateProvider<HomeTab>((_) => HomeTab.chat);
 

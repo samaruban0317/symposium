@@ -6,6 +6,7 @@ import '../state/arena_state.dart';
 import '../theme.dart';
 import 'arena/arena_view.dart';
 import 'chat_view.dart';
+import 'persona/studio_view.dart';
 import 'sidebar.dart';
 import 'widgets.dart';
 
@@ -57,8 +58,14 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(width: 2),
           _HeaderTab(
             label: 'ARENA',
-            active: !onChat,
+            active: tab == HomeTab.arena,
             onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.arena,
+          ),
+          const SizedBox(width: 2),
+          _HeaderTab(
+            label: 'STUDIO',
+            active: tab == HomeTab.studio,
+            onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.studio,
           ),
           const Spacer(),
           // Chat-tab instruments; the arena carries its own telemetry per pane.
@@ -91,9 +98,11 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 header,
                 Expanded(
-                  child: onChat
-                      ? const Center(child: ChatView())
-                      : const ArenaView(),
+                  child: switch (tab) {
+                    HomeTab.chat => const Center(child: ChatView()),
+                    HomeTab.arena => const ArenaView(),
+                    HomeTab.studio => const StudioView(),
+                  },
                 ),
               ],
             ),

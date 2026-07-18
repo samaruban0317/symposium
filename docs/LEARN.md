@@ -481,3 +481,89 @@ structure. When the app draws its loss curve, 5.55 is the "knows nothing" line.
    structure appeared in between.
 3. Change `nano`'s `n_layer` from 4 to 1 in `common.py` and retrain. Where does the
    loss plateau now? You've just run your first architecture ablation.
+
+---
+
+## Chapter 7 — Cloud keys & the persona studio (tuned minds you can share)
+
+Two features land together in this chapter because they solve the same user
+story from two ends: *"I want an assistant tuned exactly my way, running on
+whatever brain I can afford — and I want to hand it to a friend."*
+
+### First, the app finally remembers things
+
+Until now everything lived in memory. This phase adds `lib/state/local_store.dart` —
+the ONE file that knows where Symposium keeps data on disk (via `path_provider`,
+which resolves the right per-user folder on Windows and Android). Saved cloud
+sources are `sources.json`, personas are `personas.json`. Keys are stored as plain
+local files readable by your OS user — the same trade-off git credentials make.
+If that ever needs upgrading to OS keychains, it's a one-file change, because
+every caller goes through `dataFile()`.
+
+### Cloud providers: chapter 0's rule pays out again
+
+OpenAI, Google (Gemini), and Anthropic all expose **OpenAI-compatible endpoints**.
+So "add an API key" is not three integrations — it is a URL, a header, and two
+small differences per provider:
+
+| Provider  | Base URL (includes version segment)                          | Auth |
+|-----------|--------------------------------------------------------------|------|
+| OpenAI    | `https://api.openai.com/v1`                                  | `Authorization: Bearer KEY` |
+| Gemini    | `https://generativelanguage.googleapis.com/v1beta/openai`    | `Authorization: Bearer KEY` |
+| Anthropic | `https://api.anthropic.com/v1`                               | `x-api-key: KEY` + `anthropic-version` (native endpoints), Bearer also accepted for chat |
+
+Quirks worth knowing (all handled in `ollama_engine.dart` / `sources_state.dart`):
+model *listing* is `GET /models` in the OpenAI shape `{data:[{id:…}]}` (Anthropic's
+native list happens to match — one parser covers everyone); Anthropic rejects a
+chat request with no `max_tokens`, so we default one in; newer Claude models
+reject `temperature`, so cloud requests only send it when you moved the slider;
+a 401/403 still means "online" (the *server* answered — it's the key that's
+wrong), which is why the status dot and the error message are separate ideas.
+
+### The trick: auth rides on the URL
+
+The elegant bit is `OllamaEngine.cloudAuth` — a registry mapping
+`baseUrl → headers`. The sources layer registers each saved provider once;
+after that, *any* engine built from that bare URL — the main chat, an arena
+pane — inherits the key and the cloud dialect automatically. The endpoint
+string stays the app's whole contract, which is why "duel your local qwen
+against Gemini" required a 20-line change to the arena picker, not a redesign.
+
+### Personas: the system prompt as a portable artifact
+
+Chapter 5 taught that a system prompt steers everything. A **persona**
+(`lib/models/persona.dart`) promotes that from a setting to a *thing*: name,
+glyph, instructions, sampling knobs, optionally a preferred source+model, plus
+an `instructionsRevision` counter. The STUDIO tab is a workshop around it:
+editor on one side, a live test chat on the other, and an **apply & re-ask**
+button that re-runs your last test question under the freshly edited
+instructions. Every answer is stamped with the revision that produced it
+(`r3`), because the whole pain of prompt-tuning is forgetting which wording
+caused which behavior.
+
+Tuning loop in practice: ask a representative question → read the answer →
+edit instructions → apply & re-ask → compare `r2` against `r3` → repeat. This
+is the same evaluation discipline real prompt engineers use, minus the
+spreadsheet.
+
+### Sharing a mind
+
+Export wraps the persona as
+`{"type": "symposium_persona", "version": 1, "persona": {…}}` — copied to the
+clipboard and written to a file whose path the app shows you. Two deliberate
+choices: the machine-local `pinnedSourceId` is **dropped** (your friend's
+source ids differ; the model *name* survives as a hint), and import refuses
+files with a `version` from the future instead of mis-reading them. Your friend
+pastes the JSON into their import dialog and gets your tuned assistant —
+running on *their* key or *their* PC. Nothing ever passes through a server of
+ours; sharing a persona is sharing text.
+
+### Try this
+
+1. Add a Gemini key (aistudio.google.com gives free-tier ones), then duel
+   `gemini-2.0-flash` against your local model in the arena.
+2. Build a persona in the studio with an unusual constraint ("answer in exactly
+   three sentences"). Watch which revision finally makes it stick.
+3. Export it, send the JSON to a friend running Symposium, and have them import
+   it against a completely different model. What survives the model swap —
+   and what was really the model all along?

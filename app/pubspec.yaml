@@ -12,6 +12,9 @@ dependencies:
   flutter_riverpod: ^2.5.0
   gpt_markdown: ^1.1.8
   http: ^1.2.0
+  # Dart-only on Windows (no native build step), standard plugin on Android —
+  # gives us the per-user app-data directory for saved sources and personas.
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

@@ -29,6 +29,9 @@ trainer/data/
 *.pt
 *.pth
 
+# --- Shareable build outputs (zips, apks) — rebuilt, never committed ---
+dist/
+
 # --- IDE / OS noise ---
 .idea/
 .vscode/

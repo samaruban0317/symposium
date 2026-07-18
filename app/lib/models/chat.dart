@@ -24,6 +24,46 @@ class ChatMessage {
       };
 }
 
+/// Sampling & steering knobs for the next request. Defaults match what the
+/// server would assume if we sent nothing, so `isDefault` means the request
+/// body carries no surprises and the chips row can stay empty.
+class ChatParams {
+  static const defaultTemperature = 0.7;
+  static const defaultTopP = 1.0;
+
+  final double temperature;
+  final double topP;
+  final int? maxTokens; // null = let the model run to its own limit
+  final String systemPrompt; // '' = none
+
+  const ChatParams({
+    this.temperature = defaultTemperature,
+    this.topP = defaultTopP,
+    this.maxTokens,
+    this.systemPrompt = '',
+  });
+
+  ChatParams copyWith({
+    double? temperature,
+    double? topP,
+    int? maxTokens,
+    bool clearMaxTokens = false,
+    String? systemPrompt,
+  }) =>
+      ChatParams(
+        temperature: temperature ?? this.temperature,
+        topP: topP ?? this.topP,
+        maxTokens: clearMaxTokens ? null : (maxTokens ?? this.maxTokens),
+        systemPrompt: systemPrompt ?? this.systemPrompt,
+      );
+
+  bool get isDefault =>
+      temperature == defaultTemperature &&
+      topP == defaultTopP &&
+      maxTokens == null &&
+      systemPrompt.trim().isEmpty;
+}
+
 class ModelInfo {
   final String name;
   final int sizeBytes;

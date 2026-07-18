@@ -35,6 +35,10 @@ final selectedModelProvider = StateProvider<String?>((ref) {
   return models != null && models.isNotEmpty ? models.first.name : null;
 });
 
+/// Sampling knobs + system prompt, edited in the parameter lab. Read at send
+/// time, so changing them mid-conversation affects only the next request.
+final chatParamsProvider = StateProvider<ChatParams>((ref) => const ChatParams());
+
 // ---------------------------------------------------------------------------
 // Chat
 // ---------------------------------------------------------------------------
@@ -74,13 +78,56 @@ class ChatController extends StateNotifier<ChatState> {
   ChatController(this.ref) : super(const ChatState());
 
   Future<void> send(String text) async {
-    final model = ref.read(selectedModelProvider);
-    if (model == null || state.isStreaming || text.trim().isEmpty) return;
-
-    final engine = ref.read(engineProvider);
-    final history = [
+    if (state.isStreaming || text.trim().isEmpty) return;
+    await _run([
       ...state.messages,
       ChatMessage(role: Role.user, content: text.trim()),
+    ]);
+  }
+
+  /// Drop the trailing assistant reply (if any) and answer again — same
+  /// history, current params, so it doubles as "retry with new settings".
+  Future<void> regenerate() async {
+    if (state.isStreaming || state.messages.isEmpty) return;
+    final history = [...state.messages];
+    if (history.last.role == Role.assistant) history.removeLast();
+    if (history.isEmpty) return;
+    await _run(history);
+  }
+
+  /// Rewrite the user message at [index]; everything after it is discarded
+  /// and the conversation continues from the edited text.
+  Future<void> editAndResend(int index, String newText) async {
+    if (state.isStreaming || newText.trim().isEmpty) return;
+    if (index < 0 || index >= state.messages.length) return;
+    if (state.messages[index].role != Role.user) return;
+    await _run([
+      ...state.messages.sublist(0, index),
+      ChatMessage(role: Role.user, content: newText.trim()),
+    ]);
+  }
+
+  /// Start over from a prefix of the transcript: keep everything up to and
+  /// including [index], forget the rest. The kept history seeds what is
+  /// effectively a new conversation.
+  void forkFrom(int index) {
+    if (index < 0 || index >= state.messages.length) return;
+    stop();
+    state = ChatState(messages: state.messages.sublist(0, index + 1));
+  }
+
+  Future<void> _run(List<ChatMessage> history) async {
+    final model = ref.read(selectedModelProvider);
+    if (model == null) return;
+
+    final engine = ref.read(engineProvider);
+    final params = ref.read(chatParamsProvider);
+    // The system prompt lives outside the visible transcript — prepended per
+    // request, so editing it later re-steers the whole conversation.
+    final wire = [
+      if (params.systemPrompt.trim().isNotEmpty)
+        ChatMessage(role: Role.system, content: params.systemPrompt.trim()),
+      ...history,
     ];
     state = state.copyWith(
       messages: [
@@ -94,7 +141,13 @@ class ChatController extends StateNotifier<ChatState> {
 
     final stopwatch = Stopwatch()..start();
     var chunks = 0;
-    final chat = engine.chat(model: model, messages: history);
+    final chat = engine.chat(
+      model: model,
+      messages: wire,
+      temperature: params.temperature,
+      topP: params.topP == ChatParams.defaultTopP ? null : params.topP,
+      maxTokens: params.maxTokens,
+    );
     _active = chat;
 
     try {

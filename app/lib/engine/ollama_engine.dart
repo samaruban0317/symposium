@@ -93,6 +93,8 @@ class OllamaEngine {
     required String model,
     required List<ChatMessage> messages,
     double temperature = 0.7,
+    double? topP,
+    int? maxTokens,
   }) {
     final client = http.Client();
     final controller = StreamController<String>();
@@ -106,6 +108,10 @@ class OllamaEngine {
             'model': model,
             'stream': true,
             'temperature': temperature,
+            // Only sent when set — a body without these keys behaves exactly
+            // as before, so older engines see nothing new.
+            if (topP != null) 'top_p': topP,
+            if (maxTokens != null) 'max_tokens': maxTokens,
             'messages': messages.map((m) => m.toOpenAi()).toList(),
           });
         final res = await client.send(req);

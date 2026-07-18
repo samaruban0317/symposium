@@ -314,4 +314,170 @@ Two manifest lines matter (`android/app/src/main/AndroidManifest.xml`):
 plain `http://` by default, but LAN engines have no TLS certificates, so we opt in.
 Traffic never leaves your network.
 
-*(Chapter 4 — split screen & arena — arrives with phase 3.)*
+---
+
+## Chapter 4 — Split screen & arena (two minds at once)
+
+Chapter 0 promised that "a model is just a URL + a model name" would make split screen
+cheap. This chapter is where the promise gets cashed.
+
+### The design problem
+
+Phase 1's chat has exactly one of everything: one `endpointProvider`, one engine, one
+conversation. Split screen needs **two of everything, independently** — the left pane
+might be your own PC running `qwen2.5:0.5b` while the right pane is your friend's PC
+(through the pairing-code proxy) running `llama3.2:3b`. And they must stream *at the
+same time* without stepping on each other.
+
+The wrong fix is doubling the globals (`endpoint2Provider`, `engine2Provider`…).
+The right fix is a **parameterized provider**: Riverpod's `.family` lets one
+definition produce N independent copies keyed by a value. Ours is keyed by which
+side of the screen it is:
+
+```dart
+enum ArenaSide { left, right }
+
+final paneProvider = StateNotifierProvider.family<PaneController, PaneState, ArenaSide>(
+  (ref, side) => PaneController(ref, side),
+);
+```
+
+`ref.watch(paneProvider(ArenaSide.left))` and `...(ArenaSide.right))` are now two
+fully separate state machines — separate endpoint, pairing code, model list, selected
+model, conversation, tok/s. Each constructs its own `OllamaEngine` on demand. The
+phase-1 chat is untouched; the arena lives beside it (`lib/state/arena_state.dart`,
+`lib/ui/arena/`), and the header grew CHAT | ARENA tabs.
+
+### The race-condition you always hit (and the epoch trick)
+
+Switch a pane from PC A to PC B while PC A's model list is still loading. The stale
+response arrives *late* and overwrites PC B's list. Async UIs hit this constantly.
+The classic fix is an **epoch counter**: every source switch increments an integer;
+every async result carries the epoch it started under; results from an old epoch are
+thrown away. Two lines of discipline, whole class of bugs gone.
+
+### Duel mode
+
+DUEL sends one prompt to both panes at once — two independent SSE streams, two live
+tok/s readouts, a laurel for whoever finishes first, then vote buttons (left / tie /
+right) feeding an in-memory scoreboard. One subtlety worth stealing: the scoreboard
+key (`"modelA ⇄ modelB"`) is captured when the round *starts*, not when you vote —
+otherwise switching a model mid-round would credit the wrong pairing.
+
+### Try this
+
+1. Phone + two PCs on one Wi-Fi: bind left to one PC, right to the other. Your phone
+   is now a judge between two machines' GPUs.
+2. Bind both panes to the *same* model and duel it against itself. Different answers?
+   That's sampling temperature at work (chapter 5).
+3. Read `arena_state.dart` and find the epoch check. Delete it, switch sources
+   quickly, and watch the stale-response bug appear. Put it back.
+
+---
+
+## Chapter 5 — Interactivity: the parameter lab & message surgery
+
+If phase 1 was "make it work," this phase is "make it *tactile*." Three features, each
+teaching one idea about how chat models actually behave.
+
+### The parameter lab (what the knobs really do)
+
+A "tune" icon by the composer opens a panel (`lib/ui/parameter_lab.dart`) with the
+sampling controls every server accepts but most UIs hide:
+
+- **temperature** — generation picks the next token from a probability distribution.
+  Temperature reshapes it: 0 ≈ always take the top token (deterministic, dull),
+  higher values flatten the curve (creative, eventually unhinged). Try 0.0 vs 1.5 on
+  the same question.
+- **top_p (nucleus sampling)** — instead of considering every token, keep only the
+  smallest set whose probabilities sum to *p*. A quality floor under high temperature.
+- **max_tokens** — a hard stop on answer length. Blank = let the model decide.
+- **system prompt** — a hidden first message that steers everything ("answer only in
+  rhyme"). It is deliberately kept *out* of the visible transcript and prepended at
+  request time — so editing it re-steers the *next* turn of an existing conversation.
+
+Non-default values appear as chips beside the composer, because invisible state you
+forgot about is how you end up thinking a model is broken when it's just set to
+temperature 1.8.
+
+### Message surgery (the transcript is just a list)
+
+The server is **stateless** — every request re-sends the whole message list, and the
+"conversation" exists only in the app's memory. Once you see that, three "advanced"
+features become list operations (all in `ChatController`, all via hover / long-press
+on a message):
+
+- **regenerate** — drop the last assistant message, re-send. (With different lab
+  settings, this doubles as "retry, but more creative".)
+- **edit-and-resend** — truncate the list after an earlier user message, replace it
+  with your edit, re-send. Time travel.
+- **fork from here** — copy the list up to a message into a fresh conversation and
+  explore a different branch.
+
+### Streaming markdown (why it flickers in naive UIs)
+
+Models emit markdown, and it arrives *mid-syntax* — a half-open ``` fence is briefly
+"broken markdown." Naive renderers re-parse and flicker. We added one package,
+`gpt_markdown`, built for exactly this: partial input renders stably, and code blocks
+get themed treatment with a copy button. Chosen also because it's pure Dart — no
+native plugin, so the Windows and Android builds stay simple.
+
+### Try this
+
+1. System prompt "You are a pirate", ask something, then change it to "You are a
+   lawyer" and hit regenerate on the same question.
+2. temperature 0, ask twice — identical answers? Now 1.5.
+3. Fork a conversation at its second message and take both branches somewhere
+   different. You've just used conversations as a tree.
+
+---
+
+## Chapter 6 — The trainer, part 1: a tiny GPT you can watch learn
+
+Everything so far *used* models. `trainer/` is where we start *making* one — a real
+GPT, small enough to train on a laptop, wired so the app can watch it learn live.
+(This chapter covers the Python service; the in-app Training Studio UI comes next.)
+
+### Why tiny is enough
+
+A "real" LLM is billions of parameters; ours are ~0.85M (`nano`) and ~2.75M
+(`micro`). What makes that honest is that a GPT is the *same architecture* at every
+scale — the identical code trains 1M or 1B parameters; only the config numbers and
+the hardware change. Training `nano` on Shakespeare for a few minutes takes it from
+emitting random bytes to emitting almost-English with character names — you can
+literally watch grammar being learned. That arc is the entire point.
+
+### The pieces (`trainer/`)
+
+- **`common.py`** — the tokenizer and configs, deliberately torch-free. We use a
+  **byte-level tokenizer**: vocab = the 256 possible byte values, so *any* text in
+  any language tokenizes with zero unknown-character problems. The cost: sequences
+  are ~4× longer than with a real subword vocabulary — fine at our scale.
+- **`model.py`** — the decoder-only transformer itself, heavily commented. Read it
+  top to bottom once; it is the shortest honest answer to "what *is* a GPT?"
+- **`train.py`** — the loop: sample a batch of text windows, predict every next
+  byte, measure cross-entropy loss, backpropagate, repeat. Also runnable standalone:
+  `python -m trainer.train --preset nano --dataset tinyshakespeare`.
+- **`server.py`** — FastAPI on port 8765 wrapping the loop in HTTP the app can use:
+  start/stop runs, and a WebSocket at `/runs/{id}/metrics` streaming loss, tok/s and
+  periodic generated samples. One design choice to notice: a client that connects
+  *late* first receives the full event history, then live events — so the app can
+  always draw the complete loss curve. And `/runs/{id}/generate` chats with the
+  latest checkpoint, which closes Symposium's loop: a checkpoint is just one more
+  model behind one more URL.
+
+### One number to hold onto
+
+Untrained, the model knows nothing, so every next byte is a 1-in-256 guess:
+loss = ln(256) ≈ **5.55**. The first thing training does is collapse that toward
+~2.5 (byte frequencies of English), then grind lower as it learns words and
+structure. When the app draws its loss curve, 5.55 is the "knows nothing" line.
+
+### Try this
+
+1. `pip install -r trainer/requirements.txt` (torch is the big one), then run the
+   standalone command above and watch loss fall from ≈5.55.
+2. Compare the samples printed at step 200 vs step 2000. Describe *what kind* of
+   structure appeared in between.
+3. Change `nano`'s `n_layer` from 4 to 1 in `common.py` and retrain. Where does the
+   loss plateau now? You've just run your first architecture ablation.

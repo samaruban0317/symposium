@@ -19,10 +19,10 @@ training one — happens by clicking inside the app.**
 |-------|---------|--------|
 | 1 | Streaming chat with local models (Ollama engine), in-app model download, live tokens/sec | ✅ |
 | 2 | **Host mode + peer discovery** — one toggle shares your PC's engine on the LAN (UDP discovery + pairing-code proxy); phones and other PCs find it and connect | ✅ |
-| 3 | **Split screen & arena** — two models side by side, race them on one prompt, vote | planned |
-| 4 | Deep interactivity — token confidence heatmap, tap-to-see-alternatives, fork a conversation from any token, parameter lab | planned |
+| 3 | **Split screen & arena** — two panes, each bound to any PC + model on the network, duel mode (one prompt races both), voting scoreboard | ✅ |
+| 4 | Deep interactivity — parameter lab (temperature/top-p/max-tokens/system prompt), regenerate, edit-and-resend, fork a conversation, streaming markdown | ✅ (first slice) |
 | 5 | Bundled llama.cpp engine — fully self-contained, no external installs | planned |
-| 6 | **Training studio** — train a tiny GPT from scratch on your GPU, QLoRA fine-tuning, teacher/student split screen (synthetic data + LLM-as-judge) | planned |
+| 6 | **Training studio** — Python trainer service exists (tiny GPT, live-metrics WebSocket, chat with checkpoints); in-app UI next | ⏳ backend |
 | 7 | Packaged installers, signed APK, CI | planned |
 
 ## Architecture in one paragraph

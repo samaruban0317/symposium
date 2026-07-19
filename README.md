@@ -22,6 +22,7 @@ training one — happens by clicking inside the app.**
 | 3 | **Split screen & arena** — two panes, each bound to any PC + model on the network, duel mode (one prompt races both), voting scoreboard | ✅ |
 | 4 | Deep interactivity — parameter lab (temperature/top-p/max-tokens/system prompt), regenerate, edit-and-resend, fork a conversation, streaming markdown | ✅ (first slice) |
 | 4½ | **Cloud keys & personas** — paste an OpenAI/Gemini/Anthropic key and it becomes one more source (chat + arena); persona studio: tune instructions in a live edit-and-retest loop, share personas as small JSON files | ✅ |
+| 4¾ | **Daily-driver release** — conversation history with Markdown export, full model-library browser (RAM-fit colored per device, vision/tools filters), image & PDF attachments for vision models, built-in resizable terminal, light/dark themes, join-by-IP pairing fallback, phone-first responsive UI | ✅ |
 | 5 | Bundled llama.cpp engine — fully self-contained, no external installs | planned |
 | 6 | **Training studio** — Python trainer service exists (tiny GPT, live-metrics WebSocket, chat with checkpoints); in-app UI next | ⏳ backend |
 | 7 | Packaged installers, signed APK, CI | planned |

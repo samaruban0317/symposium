@@ -246,11 +246,11 @@ class _MaxTokensFieldState extends State<_MaxTokensField> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Sym.hairline),
+            borderSide: BorderSide(color: Sym.hairline),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Sym.amberDim),
+            borderSide: BorderSide(color: Sym.amberDim),
           ),
         ),
         onChanged: (t) => widget.onChanged(t.isEmpty ? null : int.tryParse(t)),
@@ -294,11 +294,11 @@ class _SystemPromptFieldState extends State<_SystemPromptField> {
           contentPadding: const EdgeInsets.all(10),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: Sym.hairline),
+            borderSide: BorderSide(color: Sym.hairline),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: Sym.amberDim),
+            borderSide: BorderSide(color: Sym.amberDim),
           ),
         ),
         onChanged: widget.onChanged,

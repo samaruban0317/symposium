@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../engine/ollama_engine.dart';
 import '../models/chat.dart';
+import '../models/conversation.dart';
 import '../net/protocol.dart';
+import 'attachments_state.dart';
+import 'history_state.dart';
 
 /// Where the app points — an endpoint is just a base URL. It can be typed by
 /// hand or filled in by tapping a discovered peer in the sidebar.
@@ -74,14 +77,23 @@ class ChatState {
 class ChatController extends StateNotifier<ChatState> {
   final Ref ref;
   ChatStream? _active;
+  String? _conversationId; // null until the first exchange is saved
 
   ChatController(this.ref) : super(const ChatState());
 
   Future<void> send(String text) async {
-    if (state.isStreaming || text.trim().isEmpty) return;
+    final pending = ref.read(attachmentsProvider);
+    if (state.isStreaming || (text.trim().isEmpty && pending.isEmpty)) return;
+    ref.read(attachmentsProvider.notifier).clear();
     await _run([
       ...state.messages,
-      ChatMessage(role: Role.user, content: text.trim()),
+      ChatMessage(
+        role: Role.user,
+        content: text.trim(),
+        images: pending.images,
+        docName: pending.docName,
+        docText: pending.docText,
+      ),
     ]);
   }
 
@@ -113,6 +125,9 @@ class ChatController extends StateNotifier<ChatState> {
   void forkFrom(int index) {
     if (index < 0 || index >= state.messages.length) return;
     stop();
+    // A fork is a new conversation — the original stays intact in history.
+    _conversationId = null;
+    ref.read(activeConversationIdProvider.notifier).state = null;
     state = ChatState(messages: state.messages.sublist(0, index + 1));
   }
 
@@ -173,15 +188,46 @@ class ChatController extends StateNotifier<ChatState> {
         msgs.removeLast();
       }
       state = state.copyWith(messages: msgs, isStreaming: false);
+      await _snapshot();
     }
+  }
+
+  /// Persist the transcript to history. Runs after every exchange (success,
+  /// error, or stop), so the sidebar list is always current.
+  Future<void> _snapshot() async {
+    final msgs = state.messages;
+    if (msgs.isEmpty) return;
+    final id = _conversationId ??=
+        'conv-${DateTime.now().millisecondsSinceEpoch}';
+    ref.read(activeConversationIdProvider.notifier).state = id;
+    await ref.read(historyRepoProvider).upsert(Conversation(
+          id: id,
+          title: Conversation.titleFrom(msgs),
+          messages: msgs,
+          updatedAt: DateTime.now(),
+        ));
+  }
+
+  /// Load a saved conversation into the chat tab; new messages keep
+  /// appending to the same history entry.
+  void open(Conversation c) {
+    stop();
+    _conversationId = c.id;
+    ref.read(activeConversationIdProvider.notifier).state = c.id;
+    state = ChatState(messages: c.messages);
+  }
+
+  /// Start fresh. The previous conversation stays in history untouched.
+  void newConversation() {
+    stop();
+    _conversationId = null;
+    ref.read(activeConversationIdProvider.notifier).state = null;
+    state = const ChatState();
   }
 
   void stop() => _active?.cancel();
 
-  void clear() {
-    stop();
-    state = const ChatState();
-  }
+  void clear() => newConversation();
 }
 
 final chatControllerProvider =

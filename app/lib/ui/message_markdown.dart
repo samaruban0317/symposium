@@ -69,7 +69,7 @@ class _CodeBlockState extends State<_CodeBlock> {
             Container(
               height: 30,
               padding: const EdgeInsets.only(left: 12, right: 4),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: Sym.hairline)),
               ),
               child: Row(

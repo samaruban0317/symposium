@@ -29,7 +29,17 @@ class HostState {
   final int port;
   final String? error;
 
-  const HostState({required this.running, this.code = '', this.port = kProxyPort, this.error});
+  /// This machine's LAN IPv4s — shown so a peer whose discovery is blocked
+  /// (firewall, AP isolation) can still join by typing the address.
+  final List<String> addresses;
+
+  const HostState({
+    required this.running,
+    this.code = '',
+    this.port = kProxyPort,
+    this.error,
+    this.addresses = const [],
+  });
 }
 
 class HostController extends StateNotifier<HostState?> {
@@ -67,7 +77,7 @@ class HostController extends StateNotifier<HostState?> {
       await responder.start();
       _server = server;
       _responder = responder;
-      state = HostState(running: true, code: code);
+      state = HostState(running: true, code: code, addresses: await lanAddresses());
     } catch (e) {
       await _server?.stop();
       _responder?.stop();

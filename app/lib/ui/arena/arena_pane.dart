@@ -84,7 +84,7 @@ class _ArenaPaneState extends ConsumerState<ArenaPane> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, size: 13, color: Sym.danger),
+                Icon(Icons.error_outline, size: 13, color: Sym.danger),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(pane.error!,
@@ -119,7 +119,7 @@ class _PaneHeader extends ConsumerWidget {
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: Row(
@@ -171,7 +171,7 @@ class _PaneHeader extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 3),
-                    const Icon(Icons.unfold_more, size: 11, color: Sym.inkFaint),
+                    Icon(Icons.unfold_more, size: 11, color: Sym.inkFaint),
                   ],
                 ),
               ),
@@ -197,7 +197,7 @@ class _PaneHeader extends ConsumerWidget {
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               onPressed: () =>
                   ref.read(paneProvider(side).notifier).refresh(),
-              icon: const Icon(Icons.refresh, size: 14, color: Sym.inkDim),
+              icon: Icon(Icons.refresh, size: 14, color: Sym.inkDim),
             ),
           ],
         ],
@@ -342,7 +342,7 @@ class _PaneComposer extends StatelessWidget {
                     onPressed: onStop,
                     tooltip: 'Stop generation',
                     iconSize: 20,
-                    icon: const Icon(Icons.stop_circle_outlined,
+                    icon: Icon(Icons.stop_circle_outlined,
                         color: Sym.danger),
                   )
                 : IconButton(

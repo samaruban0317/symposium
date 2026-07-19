@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/chat.dart';
 import '../state/app_state.dart';
+import '../state/attachments_state.dart';
 import '../theme.dart';
 import 'message_markdown.dart';
 import 'parameter_lab.dart';
@@ -21,11 +24,12 @@ class _ChatViewState extends ConsumerState<ChatView> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   bool _labOpen = false;
+  bool _nearBottom = true; // autoscroll only while the reader is at the tail
   int? _editingIndex; // user message currently being rewritten inline
 
   void _send() {
     final text = _input.text;
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty && ref.read(attachmentsProvider).isEmpty) return;
     _input.clear();
     ref.read(chatControllerProvider.notifier).send(text);
   }
@@ -47,9 +51,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final chat = ref.watch(chatControllerProvider);
     final model = ref.watch(selectedModelProvider);
 
-    // Keep the newest tokens on screen while streaming.
+    // Keep the newest tokens on screen while streaming — but never fight a
+    // reader who has deliberately scrolled up.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients && chat.isStreaming) {
+      if (_scroll.hasClients && chat.isStreaming && _nearBottom) {
         _scroll.jumpTo(_scroll.position.maxScrollExtent);
       }
     });
@@ -58,27 +63,73 @@ class _ChatViewState extends ConsumerState<ChatView> {
       children: [
         Expanded(
           child: chat.messages.isEmpty
-              ? _EmptyState(model: model)
-              : SelectionArea(
-                  child: ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 8),
-                    itemCount: chat.messages.length,
-                    itemBuilder: (_, i) => _MessageBlock(
-                      msg: chat.messages[i],
-                      index: i,
-                      isLast: i == chat.messages.length - 1,
-                      streaming: chat.isStreaming && i == chat.messages.length - 1,
-                      busy: chat.isStreaming,
-                      editing: _editingIndex == i,
-                      onEdit: () => _startEdit(i),
-                      onEditSubmit: (text) => _submitEdit(i, text),
-                      onEditCancel: () => setState(() => _editingIndex = null),
-                      onRegenerate: () =>
-                          ref.read(chatControllerProvider.notifier).regenerate(),
-                      onFork: () => _fork(i),
+              ? _EmptyState(
+                  model: model,
+                  onSuggest: (text) {
+                    _input.text = text;
+                    setState(() {});
+                  },
+                )
+              : Stack(
+                  children: [
+                    NotificationListener<ScrollNotification>(
+                      onNotification: (n) {
+                        final near = n.metrics.pixels >=
+                            n.metrics.maxScrollExtent - 120;
+                        if (near != _nearBottom) {
+                          setState(() => _nearBottom = near);
+                        }
+                        return false;
+                      },
+                      child: SelectionArea(
+                        child: ListView.builder(
+                          controller: _scroll,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 28, horizontal: 8),
+                          itemCount: chat.messages.length,
+                          itemBuilder: (_, i) => _MessageBlock(
+                            msg: chat.messages[i],
+                            index: i,
+                            isLast: i == chat.messages.length - 1,
+                            streaming: chat.isStreaming &&
+                                i == chat.messages.length - 1,
+                            busy: chat.isStreaming,
+                            editing: _editingIndex == i,
+                            onEdit: () => _startEdit(i),
+                            onEditSubmit: (text) => _submitEdit(i, text),
+                            onEditCancel: () =>
+                                setState(() => _editingIndex = null),
+                            onRegenerate: () => ref
+                                .read(chatControllerProvider.notifier)
+                                .regenerate(),
+                            onFork: () => _fork(i),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (!_nearBottom)
+                      Positioned(
+                        right: 20,
+                        bottom: 12,
+                        child: Material(
+                          color: Sym.surfaceRaised,
+                          shape: const CircleBorder(),
+                          elevation: 3,
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () {
+                              _scroll.jumpTo(_scroll.position.maxScrollExtent);
+                              setState(() => _nearBottom = true);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(9),
+                              child: Icon(Icons.arrow_downward,
+                                  size: 16, color: Sym.amber),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
         ),
         if (chat.error != null)
@@ -91,7 +142,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, size: 14, color: Sym.danger),
+                Icon(Icons.error_outline, size: 14, color: Sym.danger),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(chat.error!,
@@ -124,25 +175,65 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
 class _EmptyState extends StatelessWidget {
   final String? model;
-  const _EmptyState({this.model});
+  final ValueChanged<String> onSuggest;
+  const _EmptyState({this.model, required this.onSuggest});
+
+  static const _starters = [
+    ('Explain something', 'Explain how a neural network learns, like I am twelve.'),
+    ('Get writing help', 'Rewrite this to sound clearer and more confident: '),
+    ('Reason it out', 'What are the strongest arguments for and against '),
+    ('Code with me', 'Write a small Python script that '),
+  ];
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('☙', style: Sym.display(size: 34, color: Sym.amberDim)),
-            const SizedBox(height: 14),
-            Text('The floor is yours.',
-                style: Sym.display(size: 30, weight: FontWeight.w400)),
-            const SizedBox(height: 10),
-            Text(
-              model == null
-                  ? 'connect an engine and choose a model to begin'
-                  : 'speaking with  $model',
-              style: Sym.mono(size: 11.5, color: Sym.inkDim, spacing: 0.5),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('☙', style: Sym.display(size: 34, color: Sym.amberDim)),
+              const SizedBox(height: 14),
+              Text('The floor is yours.',
+                  textAlign: TextAlign.center,
+                  style: Sym.display(size: 30, weight: FontWeight.w400)),
+              const SizedBox(height: 10),
+              Text(
+                model == null
+                    ? 'connect an engine and choose a model to begin'
+                    : 'speaking with  $model',
+                style: Sym.mono(size: 11.5, color: Sym.inkDim, spacing: 0.5),
+              ),
+              if (model != null) ...[
+                const SizedBox(height: 26),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final (label, prompt) in _starters)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: () => onSuggest(prompt),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: Sym.hairline),
+                          ),
+                          child: Text(label,
+                              style: Sym.mono(size: 11, color: Sym.inkDim)),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('or attach an image or document with the paperclip',
+                    style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+              ],
+            ],
+          ),
         ),
       );
 }
@@ -272,9 +363,54 @@ class _MessageBlockState extends State<_MessageBlock> {
                 )
               else if (widget.msg.content.isEmpty && widget.streaming)
                 const StreamingCursor()
-              else if (_isUser)
-                Text(widget.msg.content, style: Sym.body(size: 15))
-              else ...[
+              else if (_isUser) ...[
+                if (widget.msg.images.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final b64 in widget.msg.images)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.memory(
+                              base64Decode(b64),
+                              width: 140,
+                              height: 140,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 140,
+                                height: 140,
+                                color: Sym.surface,
+                                child: Icon(Icons.broken_image_outlined,
+                                    size: 22, color: Sym.inkFaint),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (widget.msg.docName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.description_outlined,
+                            size: 13, color: Sym.tealDim),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(widget.msg.docName!,
+                              style: Sym.mono(size: 10.5, color: Sym.tealDim),
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (widget.msg.content.isNotEmpty)
+                  Text(widget.msg.content, style: Sym.body(size: 15)),
+              ] else ...[
                 MessageMarkdown(text: widget.msg.content),
                 if (widget.streaming)
                   const Padding(
@@ -360,11 +496,11 @@ class _InlineEditorState extends State<_InlineEditor> {
               contentPadding: const EdgeInsets.all(10),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Sym.amberDim),
+                borderSide: BorderSide(color: Sym.amberDim),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Sym.amber),
+                borderSide: BorderSide(color: Sym.amber),
               ),
             ),
           ),
@@ -389,7 +525,7 @@ class _InlineEditorState extends State<_InlineEditor> {
       );
 }
 
-class _Composer extends StatelessWidget {
+class _Composer extends ConsumerStatefulWidget {
   final TextEditingController input;
   final VoidCallback onSend;
   final VoidCallback onStop;
@@ -409,62 +545,223 @@ class _Composer extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends ConsumerState<_Composer> {
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    final pending = ref.watch(attachmentsProvider);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       constraints: const BoxConstraints(maxWidth: 780),
       decoration: BoxDecoration(
         color: Sym.surfaceRaised,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Sym.hairline),
+        border: Border.all(
+            color: _focus.hasFocus
+                ? Sym.amberDim
+                : Sym.hairline),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Speak as a persona: sets system prompt + knobs in one tap.
-          const PersonaChipButton(),
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: IconButton(
-              onPressed: onToggleLab,
-              tooltip: labOpen ? 'Close parameter lab' : 'Parameter lab',
-              icon: Icon(Icons.tune, size: 18, color: labOpen ? Sym.amber : Sym.inkDim),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
-              child: TextField(
-                controller: input,
-                enabled: enabled,
-                minLines: 1,
-                maxLines: 8,
-                style: Sym.body(size: 15),
-                onSubmitted: (_) => onSend(),
-                textInputAction: TextInputAction.send,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: enabled ? 'Address the symposium…' : 'no model selected',
-                  hintStyle: Sym.body(size: 15, color: Sym.inkFaint),
+          if (!pending.isEmpty || pending.error != null)
+            _PendingAttachmentsRow(pending: pending),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Speak as a persona: sets system prompt + knobs in one tap.
+              const PersonaChipButton(),
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: IconButton(
+                  onPressed: widget.onToggleLab,
+                  tooltip:
+                      widget.labOpen ? 'Close parameter lab' : 'Parameter lab',
+                  icon: Icon(Icons.tune,
+                      size: 18, color: widget.labOpen ? Sym.amber : Sym.inkDim),
                 ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: streaming
-                ? IconButton(
-                    onPressed: onStop,
-                    tooltip: 'Stop generation',
-                    icon: const Icon(Icons.stop_circle_outlined, color: Sym.danger),
-                  )
-                : IconButton(
-                    onPressed: enabled ? onSend : null,
-                    tooltip: 'Send',
-                    icon: Icon(Icons.arrow_upward,
-                        color: enabled ? Sym.amber : Sym.inkFaint),
+              PopupMenuButton<String>(
+                tooltip: 'Attach',
+                color: Sym.surfaceRaised,
+                icon: Icon(Icons.attach_file, size: 18, color: Sym.inkDim),
+                onSelected: (v) => v == 'image'
+                    ? ref.read(attachmentsProvider.notifier).pickImage()
+                    : ref.read(attachmentsProvider.notifier).pickDocument(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'image',
+                    child: Row(children: [
+                      Icon(Icons.image_outlined, size: 15, color: Sym.tealDim),
+                      const SizedBox(width: 8),
+                      Text('image — vision models',
+                          style: Sym.mono(size: 11, color: Sym.ink)),
+                    ]),
                   ),
+                  PopupMenuItem(
+                    value: 'doc',
+                    child: Row(children: [
+                      Icon(Icons.description_outlined,
+                          size: 15, color: Sym.tealDim),
+                      const SizedBox(width: 8),
+                      Text('document — pdf, text, code',
+                          style: Sym.mono(size: 11, color: Sym.ink)),
+                    ]),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
+                  child: TextField(
+                    controller: widget.input,
+                    focusNode: _focus,
+                    enabled: widget.enabled,
+                    minLines: 1,
+                    maxLines: 8,
+                    style: Sym.body(size: 15),
+                    onSubmitted: (_) => widget.onSend(),
+                    textInputAction: TextInputAction.send,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: widget.enabled
+                          ? 'Address the symposium…'
+                          : 'no model selected',
+                      hintStyle: Sym.body(size: 15, color: Sym.inkFaint),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: widget.streaming
+                    ? IconButton(
+                        onPressed: widget.onStop,
+                        tooltip: 'Stop generation',
+                        icon:
+                            Icon(Icons.stop_circle_outlined, color: Sym.danger),
+                      )
+                    : IconButton(
+                        onPressed: widget.enabled ? widget.onSend : null,
+                        tooltip: 'Send',
+                        icon: Icon(Icons.arrow_upward,
+                            color: widget.enabled ? Sym.amber : Sym.inkFaint),
+                      ),
+              ),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What's clipped to the next message: image thumbnails and the document
+/// chip, each with its own remove ✕, plus any attach error.
+class _PendingAttachmentsRow extends ConsumerWidget {
+  final PendingAttachments pending;
+  const _PendingAttachmentsRow({required this.pending});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ctrl = ref.read(attachmentsProvider.notifier);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (var i = 0; i < pending.images.length; i++)
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.memory(
+                    base64Decode(pending.images[i]),
+                    width: 54,
+                    height: 54,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 54,
+                      height: 54,
+                      color: Sym.surface,
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 18, color: Sym.inkFaint),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 1,
+                  right: 1,
+                  child: InkWell(
+                    onTap: () => ctrl.removeImage(i),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Sym.bg.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.close, size: 11, color: Sym.ink),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          if (pending.docName != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Sym.tealDim.withValues(alpha: 0.6)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.description_outlined,
+                      size: 13, color: Sym.tealDim),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: Text(pending.docName!,
+                        style: Sym.mono(size: 10.5, color: Sym.ink),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(width: 4),
+                  Text('${((pending.docText?.length ?? 0) / 1000).ceil()}k chars',
+                      style: Sym.mono(size: 9, color: Sym.inkFaint)),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: ctrl.removeDoc,
+                    child: Icon(Icons.close, size: 12, color: Sym.inkDim),
+                  ),
+                ],
+              ),
+            ),
+          if (pending.images.isNotEmpty)
+            Text('needs a vision model — llava, gemma3, qwen2.5vl…',
+                style: Sym.mono(size: 9, color: Sym.inkFaint)),
+          if (pending.error != null)
+            Text(pending.error!, style: Sym.mono(size: 9.5, color: Sym.danger)),
         ],
       ),
     );

@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
+/// Width for AlertDialog content: the desktop layouts ask for ~380–400px,
+/// which overflows a 360dp phone once dialog insets are subtracted. Clamp to
+/// what the screen actually offers.
+double dialogWidth(BuildContext context, [double ideal = 400]) {
+  final available = MediaQuery.sizeOf(context).width - 96;
+  return available < ideal ? available : ideal;
+}
+
 /// Blinking generation cursor — the little "the machine is thinking" heartbeat.
 class StreamingCursor extends StatefulWidget {
   const StreamingCursor({super.key});
@@ -34,13 +42,13 @@ class _StreamingCursorState extends State<StreamingCursor>
 class Readout extends StatelessWidget {
   final String label;
   final String value;
-  final Color valueColor;
+  final Color? valueColor; // null = the palette's ink
 
   const Readout({
     super.key,
     required this.label,
     required this.value,
-    this.valueColor = Sym.ink,
+    this.valueColor,
   });
 
   @override
@@ -50,7 +58,9 @@ class Readout extends StatelessWidget {
         children: [
           Text(label, style: Sym.label()),
           const SizedBox(height: 2),
-          Text(value, style: Sym.mono(size: 14, color: valueColor, weight: FontWeight.w600)),
+          Text(value,
+              style: Sym.mono(
+                  size: 14, color: valueColor ?? Sym.ink, weight: FontWeight.w600)),
         ],
       );
 }

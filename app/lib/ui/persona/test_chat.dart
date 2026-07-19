@@ -93,7 +93,7 @@ class _TestChatPaneState extends ConsumerState<TestChatPane> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, size: 13, color: Sym.danger),
+                Icon(Icons.error_outline, size: 13, color: Sym.danger),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(studio.error!,
@@ -172,7 +172,7 @@ class _TestChatHeader extends StatelessWidget {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: Row(
@@ -197,7 +197,7 @@ class _TestChatHeader extends StatelessWidget {
               children: [
                 Text(source?.label ?? studio.sourceId,
                     style: Sym.mono(size: 10.5, color: Sym.inkDim)),
-                const Icon(Icons.arrow_drop_down, size: 15, color: Sym.inkFaint),
+                Icon(Icons.arrow_drop_down, size: 15, color: Sym.inkFaint),
               ],
             ),
           ),
@@ -232,7 +232,7 @@ class _TestChatHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down, size: 14, color: Sym.tealDim),
+                    Icon(Icons.arrow_drop_down, size: 14, color: Sym.tealDim),
                   ],
                 ),
               ),
@@ -252,12 +252,12 @@ class _TestChatHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Re-check source',
             onPressed: onRefresh,
-            icon: const Icon(Icons.refresh, size: 15, color: Sym.inkDim),
+            icon: Icon(Icons.refresh, size: 15, color: Sym.inkDim),
           ),
           IconButton(
             tooltip: 'Clear test conversation',
             onPressed: onClear,
-            icon: const Icon(Icons.restart_alt, size: 15, color: Sym.inkDim),
+            icon: Icon(Icons.restart_alt, size: 15, color: Sym.inkDim),
           ),
         ],
       ),
@@ -424,7 +424,7 @@ class _TestComposer extends StatelessWidget {
                   ? IconButton(
                       onPressed: onStop,
                       tooltip: 'Stop generation',
-                      icon: const Icon(Icons.stop_circle_outlined,
+                      icon: Icon(Icons.stop_circle_outlined,
                           size: 20, color: Sym.danger),
                     )
                   : IconButton(

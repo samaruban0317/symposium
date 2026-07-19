@@ -82,7 +82,7 @@ class _StudioViewState extends ConsumerState<StudioView> {
         ),
         Container(
           height: 38,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Sym.hairline)),
           ),
           child: Row(
@@ -137,7 +137,7 @@ class _Roster extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       width: 232,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(right: BorderSide(color: Sym.hairline)),
       ),
       child: Column(
@@ -259,7 +259,7 @@ class _RosterStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       height: 56,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: ListView(

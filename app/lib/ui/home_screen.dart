@@ -1,13 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/app_state.dart';
 import '../state/arena_state.dart';
+import '../state/settings_state.dart';
+import '../state/terminal_state.dart';
 import '../theme.dart';
 import 'arena/arena_view.dart';
 import 'chat_view.dart';
 import 'persona/studio_view.dart';
 import 'sidebar.dart';
+import 'terminal_panel.dart';
 import 'widgets.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -20,11 +25,17 @@ class HomeScreen extends ConsumerWidget {
     final tab = ref.watch(homeTabProvider);
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final onChat = tab == HomeTab.chat;
+    // A shell only makes sense where one exists.
+    final hasShell = !Platform.isAndroid && !Platform.isIOS;
+    final termOpen = hasShell && ref.watch(terminalOpenProvider);
 
+    // On phones the tabs live in a bottom bar and the header stays minimal —
+    // title + status only. Cramming three tabs plus instruments into a 360dp
+    // header row is what caused the overflow stripes.
     final header = Container(
       height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.symmetric(horizontal: wide ? 20 : 8),
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: Row(
@@ -32,12 +43,19 @@ class HomeScreen extends ConsumerWidget {
           if (!wide)
             Builder(
               builder: (ctx) => IconButton(
-                icon: const Icon(Icons.menu, size: 18, color: Sym.inkDim),
+                icon: Icon(Icons.menu, size: 18, color: Sym.inkDim),
                 onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
             ),
-          Text('Symposium',
-              style: Sym.display(size: 21, weight: FontWeight.w600, color: Sym.ink)),
+          Text('☙', style: Sym.display(size: wide ? 17 : 15, color: Sym.amberDim)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text('Symposium',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Sym.display(
+                    size: wide ? 21 : 18, weight: FontWeight.w600, color: Sym.ink)),
+          ),
           if (wide) ...[
             const SizedBox(width: 10),
             Flexible(
@@ -48,65 +66,153 @@ class HomeScreen extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 18),
+            _HeaderTab(
+              label: 'CHAT',
+              active: onChat,
+              onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.chat,
+            ),
+            const SizedBox(width: 2),
+            _HeaderTab(
+              label: 'ARENA',
+              active: tab == HomeTab.arena,
+              onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.arena,
+            ),
+            const SizedBox(width: 2),
+            _HeaderTab(
+              label: 'STUDIO',
+              active: tab == HomeTab.studio,
+              onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.studio,
+            ),
           ],
-          const SizedBox(width: 18),
-          _HeaderTab(
-            label: 'CHAT',
-            active: onChat,
-            onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.chat,
-          ),
-          const SizedBox(width: 2),
-          _HeaderTab(
-            label: 'ARENA',
-            active: tab == HomeTab.arena,
-            onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.arena,
-          ),
-          const SizedBox(width: 2),
-          _HeaderTab(
-            label: 'STUDIO',
-            active: tab == HomeTab.studio,
-            onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.studio,
-          ),
           const Spacer(),
           // Chat-tab instruments; the arena carries its own telemetry per pane.
-          if (onChat && chat.tokPerSec > 0)
+          if (wide && onChat && chat.tokPerSec > 0) ...[
             Readout(
               label: 'TOK/S',
               value: chat.tokPerSec.toStringAsFixed(1),
               valueColor: chat.isStreaming ? Sym.teal : Sym.inkDim,
             ),
-          const SizedBox(width: 18),
+            const SizedBox(width: 18),
+          ],
+          IconButton(
+            tooltip: Sym.isDark ? 'Daylight theme' : 'Lamplight theme',
+            onPressed: () => setDarkMode(ref, !Sym.isDark),
+            icon: Icon(Sym.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                size: 17, color: Sym.inkDim),
+          ),
+          if (hasShell)
+            IconButton(
+              tooltip: termOpen ? 'Hide terminal' : 'Terminal',
+              onPressed: () =>
+                  ref.read(terminalOpenProvider.notifier).state = !termOpen,
+              icon: Icon(Icons.terminal,
+                  size: 17, color: termOpen ? Sym.amber : Sym.inkDim),
+            ),
           if (onChat)
             IconButton(
               tooltip: 'New conversation',
-              onPressed: () => ref.read(chatControllerProvider.notifier).clear(),
-              icon: const Icon(Icons.restart_alt, size: 17, color: Sym.inkDim),
+              onPressed: () =>
+                  ref.read(chatControllerProvider.notifier).newConversation(),
+              icon: Icon(Icons.add_comment_outlined, size: 17, color: Sym.inkDim),
             ),
           const SizedBox(width: 4),
           StatusDot(online: online),
+          if (!wide) const SizedBox(width: 8),
         ],
       ),
     );
 
     return Scaffold(
-      drawer: wide ? null : const Drawer(backgroundColor: Sym.surface, child: Sidebar()),
-      body: Row(
-        children: [
-          if (wide) const Sidebar(),
-          Expanded(
-            child: Column(
-              children: [
-                header,
-                Expanded(
-                  child: switch (tab) {
-                    HomeTab.chat => const Center(child: ChatView()),
-                    HomeTab.arena => const ArenaView(),
-                    HomeTab.studio => const StudioView(),
-                  },
+      drawer: wide ? null : Drawer(backgroundColor: Sym.surface, child: SafeArea(child: Sidebar())),
+      // SafeArea keeps the header out from under the status bar and the
+      // composer above the gesture bar on edge-to-edge Android builds.
+      body: SafeArea(
+        child: Row(
+          children: [
+            if (wide) const Sidebar(),
+            Expanded(
+              child: Column(
+                children: [
+                  header,
+                  Expanded(
+                    // A quiet cross-fade between tabs — instant-feeling but
+                    // not jarring.
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      switchInCurve: Curves.easeOutCubic,
+                      child: KeyedSubtree(
+                        key: ValueKey(tab),
+                        child: switch (tab) {
+                          HomeTab.chat => const Center(child: ChatView()),
+                          HomeTab.arena => const ArenaView(),
+                          HomeTab.studio => const StudioView(),
+                        },
+                      ),
+                    ),
+                  ),
+                  if (termOpen) const TerminalPanel(),
+                  if (!wide) _BottomNav(tab: tab, ref: ref),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Phone navigation: the three destinations as an instrument-panel strip
+/// pinned to the bottom, where thumbs actually are.
+class _BottomNav extends StatelessWidget {
+  final HomeTab tab;
+  final WidgetRef ref;
+
+  const _BottomNav({required this.tab, required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(String label, IconData icon, HomeTab target) {
+      final active = tab == target;
+      return Expanded(
+        child: InkWell(
+          onTap: () => ref.read(homeTabProvider.notifier).state = target,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: active ? Sym.amber : Colors.transparent,
+                  width: 2,
                 ),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: active ? Sym.amber : Sym.inkDim),
+                const SizedBox(height: 3),
+                Text(label,
+                    style: Sym.label(
+                        color: active ? Sym.amber : Sym.inkDim, size: 8.5)),
               ],
             ),
           ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Sym.surface,
+        border: Border(top: BorderSide(color: Sym.hairline)),
+      ),
+      child: Row(
+        children: [
+          item('CHAT', Icons.forum_outlined, HomeTab.chat),
+          item('ARENA', Icons.compare_arrows, HomeTab.arena),
+          item('STUDIO', Icons.theater_comedy_outlined, HomeTab.studio),
         ],
       ),
     );

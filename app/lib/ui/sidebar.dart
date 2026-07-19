@@ -1,9 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/conversation.dart';
 import '../models/source.dart';
 import '../net/protocol.dart';
 import '../state/app_state.dart';
+import '../state/arena_state.dart';
+import '../state/history_state.dart';
 import '../state/net_state.dart';
 import '../state/sources_contract.dart';
 import '../state/sources_state.dart';
@@ -27,7 +33,7 @@ class Sidebar extends ConsumerWidget {
 
     return Container(
       width: 264,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Sym.surface,
         border: Border(right: BorderSide(color: Sym.hairline)),
       ),
@@ -58,11 +64,13 @@ class Sidebar extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.edit_outlined, size: 14, color: Sym.inkFaint),
+                  Icon(Icons.edit_outlined, size: 14, color: Sym.inkFaint),
                 ],
               ),
             ),
           ),
+          const Divider(height: 1),
+          const _ConversationsSection(),
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -70,7 +78,7 @@ class Sidebar extends ConsumerWidget {
           ),
           Expanded(
             child: models.when(
-              loading: () => const Center(
+              loading: () => Center(
                 child: SizedBox(
                   width: 18,
                   height: 18,
@@ -79,11 +87,33 @@ class Sidebar extends ConsumerWidget {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
-                  online
-                      ? 'Could not list models.\n$e'
-                      : 'No engine at this address.\nIs Ollama running?',
-                  style: Sym.mono(size: 11, color: Sym.inkDim),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      online
+                          ? 'Could not list models.\n$e'
+                          : 'No engine at this address.\nIs Ollama running?',
+                      style: Sym.mono(size: 11, color: Sym.inkDim),
+                    ),
+                    // One click instead of "open a terminal and run ollama
+                    // serve" — only offered where that could actually work.
+                    if (!online &&
+                        endpoint.contains('127.0.0.1') &&
+                        !Platform.isAndroid &&
+                        !Platform.isIOS) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        onPressed: () => _launchOllama(ref),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Sym.teal,
+                          side: BorderSide(color: Sym.tealDim),
+                        ),
+                        child: Text('START OLLAMA',
+                            style: Sym.label(color: Sym.teal, size: 9)),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               data: (list) => list.isEmpty
@@ -169,7 +199,7 @@ class Sidebar extends ConsumerWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Sym.amber,
-                  side: const BorderSide(color: Sym.amberDim),
+                  side: BorderSide(color: Sym.amberDim),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
@@ -183,6 +213,19 @@ class Sidebar extends ConsumerWidget {
     );
   }
 
+  /// Fire-and-forget `ollama serve`, then re-ping. If the CLI is missing or
+  /// the port is already taken this silently does nothing and the offline
+  /// message simply stays — no worse than before the click.
+  Future<void> _launchOllama(WidgetRef ref) async {
+    try {
+      await Process.start('ollama', ['serve'],
+          mode: ProcessStartMode.detached, runInShell: true);
+    } catch (_) {}
+    await Future<void>.delayed(const Duration(seconds: 2));
+    ref.invalidate(serverOnlineProvider);
+    ref.invalidate(modelsProvider);
+  }
+
   void _editEndpoint(BuildContext context, WidgetRef ref, String current) {
     final ctrl = TextEditingController(text: current);
     showDialog<void>(
@@ -191,7 +234,7 @@ class Sidebar extends ConsumerWidget {
         backgroundColor: Sym.surfaceRaised,
         title: Text('Engine address', style: Sym.display(size: 20)),
         content: SizedBox(
-          width: 380,
+          width: dialogWidth(ctx, 380),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +247,7 @@ class Sidebar extends ConsumerWidget {
               TextField(
                 controller: ctrl,
                 style: Sym.mono(size: 13, color: Sym.ink),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'http://192.168.1.42:11434',
                   enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: Sym.hairline),
@@ -236,6 +279,221 @@ class Sidebar extends ConsumerWidget {
   }
 }
 
+/// Past conversations — tap to reopen, keep talking, and the same history
+/// entry updates. The active one carries the amber edge like a selected model.
+class _ConversationsSection extends ConsumerWidget {
+  const _ConversationsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(historyLoadProvider); // hydrate saved conversations once
+    final conversations = ref.watch(conversationsProvider);
+    final activeId = ref.watch(activeConversationIdProvider);
+
+    void closeDrawerIfOpen() {
+      final scaffold = Scaffold.maybeOf(context);
+      if (scaffold?.isDrawerOpen ?? false) Navigator.pop(context);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('CONVERSATIONS', style: Sym.label())),
+              InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: () {
+                  ref.read(chatControllerProvider.notifier).newConversation();
+                  ref.read(homeTabProvider.notifier).state = HomeTab.chat;
+                  closeDrawerIfOpen();
+                },
+                child: Padding(
+                  padding: EdgeInsets.all(3),
+                  child: Icon(Icons.add, size: 14, color: Sym.inkDim),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (conversations.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('your past chats will appear here',
+                  style: Sym.mono(size: 10, color: Sym.inkFaint)),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 176),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: conversations.length,
+                itemBuilder: (_, i) {
+                  final c = conversations[i];
+                  final active = c.id == activeId;
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () {
+                        ref.read(chatControllerProvider.notifier).open(c);
+                        ref.read(homeTabProvider.notifier).state = HomeTab.chat;
+                        closeDrawerIfOpen();
+                      },
+                      child: Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: active ? Sym.amber : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    c.title,
+                                    style: Sym.mono(
+                                        size: 11.5,
+                                        color: active ? Sym.ink : Sym.inkDim,
+                                        weight: active
+                                            ? FontWeight.w600
+                                            : FontWeight.w400),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    '${_relativeTime(c.updatedAt)} · ${c.messages.length} msg',
+                                    style: Sym.mono(size: 9.5, color: Sym.inkFaint),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _ConversationMenu(conversation: c),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConversationMenu extends ConsumerWidget {
+  final Conversation conversation;
+  const _ConversationMenu({required this.conversation});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => PopupMenuButton<String>(
+        padding: EdgeInsets.zero,
+        color: Sym.surfaceRaised,
+        icon: Icon(Icons.more_horiz, size: 14, color: Sym.inkFaint),
+        onSelected: (v) {
+          switch (v) {
+            case 'rename':
+              _showRenameDialog(context, ref, conversation);
+            case 'export':
+              _export(context, conversation);
+            case 'delete':
+              ref.read(historyRepoProvider).remove(conversation.id);
+              if (ref.read(activeConversationIdProvider) == conversation.id) {
+                ref.read(chatControllerProvider.notifier).newConversation();
+              }
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(
+              value: 'rename',
+              child: Text('rename', style: Sym.mono(size: 11, color: Sym.ink))),
+          PopupMenuItem(
+              value: 'export',
+              child: Text('export markdown',
+                  style: Sym.mono(size: 11, color: Sym.ink))),
+          PopupMenuItem(
+              value: 'delete',
+              child: Text('delete', style: Sym.mono(size: 11, color: Sym.danger))),
+        ],
+      );
+
+  /// Clipboard always; a file in Downloads too where that folder exists.
+  Future<void> _export(BuildContext context, Conversation c) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    await Clipboard.setData(ClipboardData(text: conversationMarkdown(c)));
+    final path = await exportConversationFile(c);
+    messenger?.showSnackBar(SnackBar(
+      backgroundColor: Sym.surfaceRaised,
+      content: Text(
+        path == null ? 'copied as Markdown' : 'copied · saved to $path',
+        style: Sym.mono(size: 11, color: Sym.ink),
+      ),
+    ));
+  }
+}
+
+void _showRenameDialog(BuildContext context, WidgetRef ref, Conversation c) {
+  final ctrl = TextEditingController(text: c.title);
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Sym.surfaceRaised,
+      title: Text('Rename conversation', style: Sym.display(size: 20)),
+      content: SizedBox(
+        width: dialogWidth(ctx, 360),
+        child: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: Sym.mono(size: 13, color: Sym.ink),
+          onSubmitted: (t) {
+            if (t.trim().isNotEmpty) {
+              ref.read(historyRepoProvider).rename(c.id, t.trim());
+            }
+            Navigator.pop(ctx);
+          },
+          decoration: InputDecoration(
+            enabledBorder:
+                UnderlineInputBorder(borderSide: BorderSide(color: Sym.hairline)),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx), child: Text('CANCEL', style: Sym.label())),
+        TextButton(
+          onPressed: () {
+            final t = ctrl.text.trim();
+            if (t.isNotEmpty) ref.read(historyRepoProvider).rename(c.id, t);
+            Navigator.pop(ctx);
+          },
+          child: Text('SAVE', style: Sym.label(color: Sym.amber)),
+        ),
+      ],
+    ),
+  );
+}
+
+/// "just now", "5m", "3h", "2d", then a date — compact enough for the sidebar.
+String _relativeTime(DateTime t) {
+  final d = DateTime.now().difference(t);
+  if (d.inMinutes < 1) return 'just now';
+  if (d.inHours < 1) return '${d.inMinutes}m ago';
+  if (d.inDays < 1) return '${d.inHours}h ago';
+  if (d.inDays < 7) return '${d.inDays}d ago';
+  return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+}
+
 /// Saved cloud providers — the "bring your own API key" shelf. A provider is
 /// just one more OpenAI-compatible URL; the key rides along via the
 /// engine-level auth registry, so tapping one works exactly like tapping a
@@ -262,7 +520,7 @@ class _CloudSection extends ConsumerWidget {
               InkWell(
                 borderRadius: BorderRadius.circular(4),
                 onTap: () => _showAddCloudDialog(context, ref),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(3),
                   child: Icon(Icons.add, size: 14, color: Sym.inkDim),
                 ),
@@ -299,7 +557,7 @@ class _CloudSection extends ConsumerWidget {
                     child: Row(
                       children: [
                         const SizedBox(width: 4),
-                        const Icon(Icons.cloud_outlined, size: 13, color: Sym.tealDim),
+                        Icon(Icons.cloud_outlined, size: 13, color: Sym.tealDim),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
@@ -337,7 +595,7 @@ class _CloudMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => PopupMenuButton<String>(
         padding: EdgeInsets.zero,
         color: Sym.surfaceRaised,
-        icon: const Icon(Icons.more_horiz, size: 14, color: Sym.inkFaint),
+        icon: Icon(Icons.more_horiz, size: 14, color: Sym.inkFaint),
         onSelected: (v) {
           final repo = ref.read(sourcesRepoProvider);
           switch (v) {
@@ -366,7 +624,7 @@ void _showEditKeyDialog(BuildContext context, WidgetRef ref, ModelSource source)
       backgroundColor: Sym.surfaceRaised,
       title: Text('New key for ${source.label}', style: Sym.display(size: 20)),
       content: SizedBox(
-        width: 380,
+        width: dialogWidth(ctx, 380),
         child: TextField(
           controller: ctrl,
           autofocus: true,
@@ -376,7 +634,7 @@ void _showEditKeyDialog(BuildContext context, WidgetRef ref, ModelSource source)
             hintText: presetFor(source.providerId).keyHint,
             hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
             enabledBorder:
-                const UnderlineInputBorder(borderSide: BorderSide(color: Sym.hairline)),
+                UnderlineInputBorder(borderSide: BorderSide(color: Sym.hairline)),
           ),
         ),
       ),
@@ -452,7 +710,7 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
           backgroundColor: Sym.surfaceRaised,
           title: Text('Add a cloud provider', style: Sym.display(size: 20)),
           content: SizedBox(
-            width: 400,
+            width: dialogWidth(ctx),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,7 +747,7 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
                     decoration: InputDecoration(
                       hintText: 'https://my-server.example.com/v1',
                       hintStyle: Sym.mono(size: 11, color: Sym.inkFaint),
-                      enabledBorder: const UnderlineInputBorder(
+                      enabledBorder: UnderlineInputBorder(
                           borderSide: BorderSide(color: Sym.hairline)),
                     ),
                   ),
@@ -504,14 +762,14 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
                   decoration: InputDecoration(
                     hintText: custom ? 'API key' : preset.keyHint,
                     hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
-                    enabledBorder: const UnderlineInputBorder(
+                    enabledBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: Sym.hairline)),
                   ),
                 ),
                 const SizedBox(height: 10),
                 if (busy)
                   Row(children: [
-                    const SizedBox(
+                    SizedBox(
                         width: 12,
                         height: 12,
                         child:
@@ -623,12 +881,38 @@ class _NetworkSection extends ConsumerWidget {
             const SizedBox(height: 2),
             Text('friends need this to connect',
                 style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+            if (host.addresses.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('THIS PC', style: Sym.label(color: Sym.tealDim, size: 9)),
+              const SizedBox(height: 2),
+              for (final a in host.addresses)
+                SelectableText('$a:${host.port}',
+                    style: Sym.mono(size: 11, color: Sym.ink)),
+              const SizedBox(height: 2),
+              Text(
+                'not visible on phones? allow Symposium through\nthe firewall (private networks), or join by IP',
+                style: Sym.mono(size: 9, color: Sym.inkFaint),
+              ),
+            ],
           ] else if (host?.error != null) ...[
             const SizedBox(height: 4),
             Text(host!.error!, style: Sym.mono(size: 9.5, color: Sym.danger), maxLines: 2),
           ],
           const SizedBox(height: 10),
-          Text('PEERS', style: Sym.label()),
+          Row(
+            children: [
+              Expanded(child: Text('PEERS', style: Sym.label())),
+              InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: () => _joinByIp(context, ref),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text('JOIN BY IP',
+                      style: Sym.label(color: Sym.tealDim, size: 8.5)),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           if (peers.isEmpty)
             Padding(
@@ -652,7 +936,7 @@ class _NetworkSection extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                           child: Row(
                             children: [
-                              const Icon(Icons.dns_outlined, size: 13, color: Sym.tealDim),
+                              Icon(Icons.dns_outlined, size: 13, color: Sym.tealDim),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -670,7 +954,7 @@ class _NetworkSection extends ConsumerWidget {
                                 ),
                               ),
                               if (p.pairing)
-                                const Icon(Icons.lock_outline, size: 12, color: Sym.inkFaint),
+                                Icon(Icons.lock_outline, size: 12, color: Sym.inkFaint),
                             ],
                           ),
                         ),
@@ -679,6 +963,84 @@ class _NetworkSection extends ConsumerWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Discovery uses UDP broadcast, which firewalls and some Wi-Fi setups eat.
+  /// This is the guaranteed path: type the host's IP (shown on their screen)
+  /// and the 6-digit code, and connect straight to the proxy.
+  void _joinByIp(BuildContext context, WidgetRef ref) {
+    final ipCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+
+    void connect(BuildContext ctx) {
+      var addr = ipCtrl.text.trim();
+      if (addr.isEmpty) return;
+      addr = addr.replaceFirst(RegExp('^https?://'), '').replaceAll(RegExp(r'/+$'), '');
+      if (!addr.contains(':')) addr = '$addr:$kProxyPort';
+      final code = codeCtrl.text.trim();
+      ref.read(pairingCodeProvider.notifier).state = code.isEmpty ? null : code;
+      ref.read(endpointProvider.notifier).state = 'http://$addr';
+      Navigator.pop(ctx);
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Sym.surfaceRaised,
+        title: Text('Join by IP', style: Sym.display(size: 20)),
+        content: SizedBox(
+          width: dialogWidth(ctx),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'The host PC shows its address under\nHOST ON NETWORK → THIS PC.',
+                style: Sym.mono(size: 11, color: Sym.inkDim),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ipCtrl,
+                autofocus: true,
+                style: Sym.mono(size: 13, color: Sym.ink),
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  hintText: '192.168.1.42:$kProxyPort',
+                  hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
+                  enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Sym.hairline)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: codeCtrl,
+                maxLength: 6,
+                keyboardType: TextInputType.number,
+                style: Sym.mono(size: 16, color: Sym.teal, spacing: 4),
+                onSubmitted: (_) => connect(ctx),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: '6-digit code',
+                  hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
+                  enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Sym.hairline)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: Sym.label()),
+          ),
+          TextButton(
+            onPressed: () => connect(ctx),
+            child: Text('JOIN', style: Sym.label(color: Sym.amber)),
+          ),
         ],
       ),
     );
@@ -701,7 +1063,7 @@ class _NetworkSection extends ConsumerWidget {
         backgroundColor: Sym.surfaceRaised,
         title: Text('Join ${peer.name}', style: Sym.display(size: 20)),
         content: SizedBox(
-          width: 360,
+          width: dialogWidth(ctx, 360),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -723,7 +1085,7 @@ class _NetworkSection extends ConsumerWidget {
                   maxLength: 6,
                   style: Sym.mono(size: 18, color: Sym.teal, spacing: 4),
                   onSubmitted: (_) => connect(ctx),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     counterText: '',
                     hintText: '······',
                     enabledBorder: UnderlineInputBorder(
@@ -780,7 +1142,7 @@ class _PullBanner extends ConsumerWidget {
               if (pull.done || failed)
                 GestureDetector(
                   onTap: () => ref.read(pullControllerProvider.notifier).dismiss(),
-                  child: const Icon(Icons.close, size: 13, color: Sym.inkFaint),
+                  child: Icon(Icons.close, size: 13, color: Sym.inkFaint),
                 ),
             ],
           ),

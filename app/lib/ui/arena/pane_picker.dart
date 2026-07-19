@@ -111,7 +111,7 @@ class _PanePickerDialogState extends ConsumerState<_PanePickerDialog> {
                     subtitle:
                         '${p.address} · ${p.models.length} model${p.models.length == 1 ? '' : 's'}',
                     trailing: p.pairing
-                        ? const Icon(Icons.lock_outline,
+                        ? Icon(Icons.lock_outline,
                             size: 12, color: Sym.inkFaint)
                         : null,
                     onTap: () {
@@ -161,7 +161,7 @@ class _PanePickerDialogState extends ConsumerState<_PanePickerDialog> {
                 decoration: InputDecoration(
                   hintText: 'http://192.168.1.42:11434',
                   hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
-                  enabledBorder: const UnderlineInputBorder(
+                  enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: Sym.hairline),
                   ),
                 ),
@@ -207,7 +207,7 @@ class _PanePickerDialogState extends ConsumerState<_PanePickerDialog> {
           maxLength: 6,
           style: Sym.mono(size: 18, color: Sym.teal, spacing: 4),
           onSubmitted: (_) => _joinPeer(peer),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             counterText: '',
             hintText: '······',
             enabledBorder: UnderlineInputBorder(

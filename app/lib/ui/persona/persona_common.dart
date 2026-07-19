@@ -7,14 +7,15 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 
 /// Muted companions to the lamplight/phosphor pair — an index into this list
-/// is stored on the persona, so append, never reorder.
-const personaAccents = <Color>[
-  Sym.amber,
-  Sym.teal,
-  Color(0xFFC7808B), // rose
-  Color(0xFFA08BC7), // violet
-  Color(0xFF9DB86E), // moss
-];
+/// is stored on the persona, so append, never reorder. A getter (not a final)
+/// so the first two entries track the active palette.
+List<Color> get personaAccents => <Color>[
+      Sym.amber,
+      Sym.teal,
+      const Color(0xFFC7808B), // rose
+      const Color(0xFFA08BC7), // violet
+      const Color(0xFF9DB86E), // moss
+    ];
 
 Color personaAccent(int index) =>
     personaAccents[index.clamp(0, personaAccents.length - 1)];
@@ -67,19 +68,19 @@ class RevisionChip extends StatelessWidget {
 /// Bordered mono text button, the studio's workhorse control.
 class StudioButton extends StatelessWidget {
   final String label;
-  final Color color;
+  final Color? color; // null = the palette's dim ink
   final VoidCallback? onTap;
   final bool filled;
   const StudioButton(
       {super.key,
       required this.label,
-      this.color = Sym.inkDim,
+      this.color,
       this.onTap,
       this.filled = false});
 
   @override
   Widget build(BuildContext context) {
-    final c = onTap == null ? Sym.inkFaint : color;
+    final c = onTap == null ? Sym.inkFaint : (color ?? Sym.inkDim);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),

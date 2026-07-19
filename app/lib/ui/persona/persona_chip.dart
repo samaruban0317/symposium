@@ -54,7 +54,7 @@ class PersonaChipButton extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis),
                 ),
                 if (p.id == activeId)
-                  const Icon(Icons.check, size: 13, color: Sym.amber),
+                  Icon(Icons.check, size: 13, color: Sym.amber),
               ],
             ),
           ),
@@ -92,7 +92,7 @@ class PersonaChipButton extends ConsumerWidget {
                       child: Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                             shape: BoxShape.circle, color: Sym.amber),
                       ),
                     ),

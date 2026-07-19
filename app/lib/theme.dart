@@ -1,45 +1,110 @@
 import 'package:flutter/material.dart';
 
-/// Symposium's visual identity: "lamplight academy".
-/// Warm ink-black surfaces, candlelight amber for the human side,
-/// phosphor teal for machine telemetry. Serif display type (Spectral)
-/// over an instrument-panel mono (IBM Plex Mono).
+/// One complete set of Symposium colors. Two instances exist — lamplight
+/// (dark) and daylight (light) — and [Sym] points at whichever is active.
+class SymPalette {
+  final Color bg, surface, surfaceRaised, hairline;
+  final Color amber, amberDim, teal, tealDim, danger;
+  final Color ink, inkDim, inkFaint;
+
+  const SymPalette({
+    required this.bg,
+    required this.surface,
+    required this.surfaceRaised,
+    required this.hairline,
+    required this.amber,
+    required this.amberDim,
+    required this.teal,
+    required this.tealDim,
+    required this.danger,
+    required this.ink,
+    required this.inkDim,
+    required this.inkFaint,
+  });
+}
+
+/// "Lamplight academy": warm ink-black surfaces, candlelight amber for the
+/// human side, phosphor teal for machine telemetry.
+const _lamplight = SymPalette(
+  bg: Color(0xFF0F0D0A),
+  surface: Color(0xFF171410),
+  surfaceRaised: Color(0xFF1E1A14),
+  hairline: Color(0xFF2A251D),
+  amber: Color(0xFFE0A458),
+  amberDim: Color(0xFF8A6836),
+  teal: Color(0xFF6FC7B6),
+  tealDim: Color(0xFF3E7A6E),
+  danger: Color(0xFFC2604C),
+  ink: Color(0xFFEAE3D4),
+  inkDim: Color(0xFF8A8172),
+  inkFaint: Color(0xFF57503F),
+);
+
+/// "Daylight reading room": warm paper surfaces, the same amber/teal language
+/// darkened until it reads as ink rather than light.
+const _daylight = SymPalette(
+  bg: Color(0xFFF7F2E9),
+  surface: Color(0xFFF0EADC),
+  surfaceRaised: Color(0xFFE8E0CE),
+  hairline: Color(0xFFD6CBB2),
+  amber: Color(0xFF9C6B14),
+  amberDim: Color(0xFFC09C5C),
+  teal: Color(0xFF1E6B5C),
+  tealDim: Color(0xFF6FA093),
+  danger: Color(0xFFA8402D),
+  ink: Color(0xFF2B2416),
+  inkDim: Color(0xFF6E6450),
+  inkFaint: Color(0xFFA2977E),
+);
+
+/// Symposium's visual identity. Serif display type (Spectral) over an
+/// instrument-panel mono (IBM Plex Mono), in whichever palette is active.
+///
+/// The colors are static getters, not consts, so the whole app re-skins by
+/// swapping the palette and rebuilding the tree (main.dart re-keys the home
+/// subtree on toggle — cheaper than threading a theme object through every
+/// widget in a two-palette app).
 abstract class Sym {
-  // Surfaces (warm blacks, never pure #000)
-  static const bg = Color(0xFF0F0D0A);
-  static const surface = Color(0xFF171410);
-  static const surfaceRaised = Color(0xFF1E1A14);
-  static const hairline = Color(0xFF2A251D);
+  static SymPalette _p = _lamplight;
+
+  static bool get isDark => identical(_p, _lamplight);
+  static void setDark(bool dark) => _p = dark ? _lamplight : _daylight;
+
+  // Surfaces
+  static Color get bg => _p.bg;
+  static Color get surface => _p.surface;
+  static Color get surfaceRaised => _p.surfaceRaised;
+  static Color get hairline => _p.hairline;
 
   // Accents
-  static const amber = Color(0xFFE0A458); // lamplight — the human side
-  static const amberDim = Color(0xFF8A6836);
-  static const teal = Color(0xFF6FC7B6); // phosphor — the machine side
-  static const tealDim = Color(0xFF3E7A6E);
-  static const danger = Color(0xFFC2604C);
+  static Color get amber => _p.amber; // lamplight — the human side
+  static Color get amberDim => _p.amberDim;
+  static Color get teal => _p.teal; // phosphor — the machine side
+  static Color get tealDim => _p.tealDim;
+  static Color get danger => _p.danger;
 
   // Text
-  static const ink = Color(0xFFEAE3D4);
-  static const inkDim = Color(0xFF8A8172);
-  static const inkFaint = Color(0xFF57503F);
+  static Color get ink => _p.ink;
+  static Color get inkDim => _p.inkDim;
+  static Color get inkFaint => _p.inkFaint;
 
-  static TextStyle display({double size = 24, Color color = ink, FontWeight weight = FontWeight.w500}) =>
-      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color, fontWeight: weight, height: 1.25);
+  static TextStyle display({double size = 24, Color? color, FontWeight weight = FontWeight.w500}) =>
+      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color ?? _p.ink, fontWeight: weight, height: 1.25);
 
-  static TextStyle body({double size = 15, Color color = ink, double height = 1.55}) =>
-      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color, height: height);
+  static TextStyle body({double size = 15, Color? color, double height = 1.55}) =>
+      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color ?? _p.ink, height: height);
 
-  static TextStyle mono({double size = 12, Color color = inkDim, FontWeight weight = FontWeight.w400, double spacing = 0}) =>
-      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color, fontWeight: weight, letterSpacing: spacing);
+  static TextStyle mono({double size = 12, Color? color, FontWeight weight = FontWeight.w400, double spacing = 0}) =>
+      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color ?? _p.inkDim, fontWeight: weight, letterSpacing: spacing);
 
   /// Small-caps-style instrument label: `MODEL`, `TOK/S`, `CONTEXT`.
-  static TextStyle label({Color color = inkDim, double size = 10}) =>
-      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color, fontWeight: FontWeight.w600, letterSpacing: 2.0);
+  static TextStyle label({Color? color, double size = 10}) =>
+      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color ?? _p.inkDim, fontWeight: FontWeight.w600, letterSpacing: 2.0);
 
   static ThemeData theme() => ThemeData(
-        brightness: Brightness.dark,
+        brightness: isDark ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: bg,
-        colorScheme: const ColorScheme.dark(
+        colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
           primary: amber,
           secondary: teal,
           surface: surface,
@@ -47,9 +112,9 @@ abstract class Sym {
         ),
         dividerColor: hairline,
         splashFactory: InkSparkle.splashFactory,
-        textSelectionTheme: const TextSelectionThemeData(
+        textSelectionTheme: TextSelectionThemeData(
           cursorColor: amber,
-          selectionColor: Color(0x33E0A458),
+          selectionColor: amber.withValues(alpha: 0.25),
         ),
         scrollbarTheme: ScrollbarThemeData(
           thumbColor: WidgetStateProperty.all(hairline),

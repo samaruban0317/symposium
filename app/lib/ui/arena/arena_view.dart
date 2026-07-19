@@ -66,12 +66,12 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
           ]);
 
     final panesIndependent = wide
-        ? Row(children: const [
+        ? Row(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
             VerticalDivider(width: 1, color: Sym.hairline),
             Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
           ])
-        : Column(children: const [
+        : Column(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
             Divider(height: 1, color: Sym.hairline),
             Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
@@ -112,7 +112,7 @@ class _ArenaToolbar extends ConsumerWidget {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: Row(
@@ -148,7 +148,7 @@ class _ArenaToolbar extends ConsumerWidget {
           IconButton(
             tooltip: 'Clear both conversations',
             onPressed: () => ref.read(arenaProvider.notifier).clearAll(),
-            icon: const Icon(Icons.restart_alt, size: 16, color: Sym.inkDim),
+            icon: Icon(Icons.restart_alt, size: 16, color: Sym.inkDim),
           ),
         ],
       ),
@@ -305,7 +305,7 @@ class _DuelComposer extends StatelessWidget {
                 ? IconButton(
                     onPressed: onStop,
                     tooltip: 'Stop both',
-                    icon: const Icon(Icons.stop_circle_outlined,
+                    icon: Icon(Icons.stop_circle_outlined,
                         color: Sym.danger),
                   )
                 : IconButton(

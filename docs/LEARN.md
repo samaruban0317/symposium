@@ -567,3 +567,240 @@ ours; sharing a persona is sharing text.
 3. Export it, send the JSON to a friend running Symposium, and have them import
    it against a completely different model. What survives the model swap —
    and what was really the model all along?
+
+## Chapter 8 — Memory, phones, and why LAN discovery fails in the real world
+
+### Conversations that survive a restart
+
+Until now a chat lived only in a `StateNotifier` — close the app, lose the
+thread. The fix is deliberately small: a `Conversation` model
+(`lib/models/conversation.dart`) and a `HistoryRepo`
+(`lib/state/history_state.dart`) that follow the exact pattern sources
+already used — one JSON file (`conversations.json`) through `local_store`,
+one hydration provider, one plain list provider the sidebar watches.
+
+The interesting decision is *when* to save. There is no save button: the
+`ChatController` snapshots the transcript in its `finally` block, after every
+exchange — success, error, or a mid-stream stop all land in history. The
+first user message becomes the title (a rename survives later snapshots,
+because the repo keeps an existing title on upsert). *Fork from here* starts
+a new id so the original stays intact; *edit & resend* keeps the id, because
+rewriting a question is still the same conversation.
+
+### The 255.255.255.255 lie
+
+Phase-2's discovery broadcast worked laptop↔laptop and then quietly failed
+laptop↔phone. Two real-world reasons:
+
+1. **The limited broadcast address is second-class.** Many Android builds
+   (and some routers) drop packets sent to `255.255.255.255`. The
+   *subnet-directed* broadcast — `192.168.1.255` for a `/24` — is far more
+   reliable, so the scanner now also probes every interface's `x.y.z.255`.
+2. **Windows Firewall eats inbound probes.** The host binds UDP 47474 just
+   fine; the phone's probe simply never arrives unless Symposium was allowed
+   through the firewall for private networks.
+
+Both failures are invisible, which is the real lesson: **every discovery
+mechanism needs a manual fallback.** The host panel now shows this PC's
+LAN address, and the peers panel gained *JOIN BY IP* — type the address and
+the 6-digit code and you connect over plain HTTP, no UDP involved. Automatic
+when it works, typeable when it doesn't.
+
+### Phones are not small desktops
+
+Three classes of mobile bug, all found in this phase:
+
+- **Edge-to-edge.** Modern Android draws apps under the status bar and the
+  gesture bar. Without a `SafeArea`, the header sat beneath the clock. One
+  widget fixes it everywhere.
+- **Fixed widths.** Dialogs asked for 380–400px of content. An AlertDialog
+  on a 360dp phone offers ~280px — instant yellow-and-black overflow
+  stripes. `dialogWidth(context)` clamps to what the screen actually has.
+- **A header is not a nav bar.** Three tabs, a title, and instruments do not
+  fit in 360dp. Below 720px the tabs move to a bottom strip — where thumbs
+  are — and the header keeps only title, new-chat, and the status dot.
+
+### Try this
+
+1. Chat, kill the app, reopen — the conversation is in the sidebar. Rename
+   it, keep chatting, and note the rename sticks.
+2. Turn on hosting, then on your phone use JOIN BY IP with the address the
+   host panel shows. If discovery was silently failing before, this works
+   anyway — and tells you the problem was UDP, not HTTP.
+3. Fork an old conversation from its middle and watch a second entry appear
+   in history while the original stays frozen.
+
+## Chapter 9 — The whole library, a terminal, and daylight
+
+### From five suggestions to the full catalog
+
+The install dialog used to offer five hand-picked models — fine for a first
+run, wrong as a permanent ceiling. The library browser
+(`lib/state/catalog_state.dart`) now fetches ollama.com/library itself.
+There is no JSON API for that page, so this is honest HTML scraping: three
+stable markers (the `/library/NAME` links, the description paragraph, the
+blue size chips) carry everything the browser needs. Scraping is brittle by
+design, so the rule is *fallback, never failure*: any problem — offline,
+firewalled, page redesigned — silently swaps in a bundled snapshot of the
+most-pulled models, and the dialog labels which one you're looking at
+("214 models · live" vs "offline catalog"). The parser is a pure function
+with its own test, because the day ollama.com changes its markup, a red test
+explains the bug faster than a user report.
+
+Search doubles as an escape hatch: anything typed that matches nothing is
+still installable verbatim, so `somebody/weird-finetune:q4` never needs the
+catalog's permission.
+
+### A terminal, on purpose
+
+Chapter 2 promised "no terminal required" — that promise stands. But
+*required* and *available* are different things: sometimes you just want
+`ollama ps` or a `ping` without leaving the app. The panel
+(`lib/state/terminal_state.dart`) is deliberately **not** a PTY: each line
+runs as its own `powershell -Command` / `sh -c` process with stdout and
+stderr streamed into a scrollback. No vim, no colors — and in exchange, no
+native dependency and nothing to break on any platform. `cd` is interpreted
+by the app so the working directory persists between commands; `clear`
+wipes the buffer; a stop button kills a runaway process. On Android the
+button simply doesn't exist — a shell you can't use is UI noise.
+
+The same idea, one notch friendlier: when the local engine is offline, the
+sidebar now offers START OLLAMA — one click instead of "open a terminal and
+type `ollama serve`".
+
+### Daylight: theming an app that thought it was one color
+
+The palette was a set of `const` colors, and `const` is a promise to the
+compiler — over eighty widgets had baked that promise into `const
+BoxDecoration(...)` expressions. Making the theme switchable meant:
+
+1. Two `SymPalette` instances (lamplight / daylight) behind static *getters*
+   with the same names, so no call site changes spelling.
+2. Un-`const`ing every expression that contained a palette color. This was
+   mechanical, so a throwaway script did it: run the analyzer with
+   `--format=machine`, and for each invalid-constant error, delete the
+   nearest enclosing `const`. Eighty-three errors, one pass, zero hand
+   edits — when a refactor is pure bookkeeping, make the tooling do it.
+3. One trick in main.dart: the home subtree is re-keyed on toggle
+   (`KeyedSubtree(key: ValueKey(dark))`), which remounts everything, so even
+   `const` widgets rebuild and read the new palette.
+
+The daylight palette keeps the identity: same amber-for-human,
+teal-for-machine language, darkened until it reads as ink on warm paper
+instead of light in a dark room. The choice persists in `settings.json` and
+loads before the first frame, so the app never flashes the wrong theme.
+
+### Try this
+
+1. Open the install browser and search "vision" — models the old dialog
+   never mentioned appear, each with its size chips. Disconnect from Wi-Fi
+   and reopen it: the offline catalog takes over, labeled as such.
+2. Open the terminal and run `ollama ps` while a model is answering in the
+   chat tab — you can watch the memory usage of the conversation you're
+   having.
+3. Toggle daylight, restart the app, and note it comes back in daylight.
+   Then look at which colors changed meaning: the amber that was lamplight
+   is now ink. Same role, different physics.
+
+## Chapter 10 — Requirements are personal, transcripts are portable
+
+### "Will it run on MY machine?"
+
+A model page saying "needs 9 GB of RAM" makes every reader do the same
+arithmetic against their own hardware. So the install browser now does it
+for them: at startup Symposium asks the OS for total RAM (a WMI query on
+Windows, `/proc/meminfo` on Android/Linux — `lib/state/device_state.dart`),
+and every size chip is colored by verdict — teal fits, amber is tight,
+red won't fit, with the honest tooltip that a too-big model "will run very
+slowly if at all" (it spills to disk; it doesn't crash).
+
+The estimates themselves (`ModelReqs` in `lib/models/catalog.dart`) come
+from one fact worth knowing: library tags ship ~4-bit quantized, which
+means roughly **0.65 GB of weights per billion parameters**, plus a couple
+of GB of headroom for the KV cache and the OS. A "7b" chip therefore reads
+`7b · 8 GB`. Mixture-of-experts sizes like `8x7b` multiply out fully —
+only some experts *compute* per token, but all of them sit in memory.
+
+The capability chips (VISION, TOOLS, THINKING, EMBEDDING) ride the same
+scrape — they're the indigo badges on the library page — and become filter
+buttons, because "which of these can see images?" was previously
+unanswerable without leaving the app.
+
+### What local models can and can't do (mid-2026 edition)
+
+Worth stating plainly, since the catalog now advertises capabilities:
+- **Seeing images** — yes. llava, moondream, gemma3, qwen2.5vl,
+  llama3.2-vision all *understand* images (photos, charts, screenshots).
+- **Reading PDFs** — indirectly: a PDF is text + images, so apps extract
+  those and feed them in. The model never "opens" the file.
+- **Generating images** — not an Ollama-family skill. That's diffusion
+  model territory (Stable Diffusion / Flux via ComfyUI and friends), a
+  different architecture entirely.
+- **Generating video** — effectively no, not locally on consumer hardware
+  in any usable way. The open video models that exist need workstation
+  GPUs and minutes per clip.
+
+### Leaving the app gracefully
+
+Two escape hatches this phase. A conversation now exports as Markdown —
+clipboard always, plus a file in Downloads where that folder exists — with
+each turn labeled by who spoke it, including *which model*, because a
+transcript where "the AI said" is unattributed loses the whole point of an
+arena app. And the Windows build gets a real desktop shortcut to the
+release exe, because "run flutter from a terminal" was this project's
+founding anti-goal.
+
+### Try this
+
+1. Open the install browser on your phone and on your PC — the same 7b
+   chip can be red on one and teal on the other. That difference *is* the
+   requirements feature.
+2. Filter by VISION, install the smallest (moondream), and ask it what's
+   in a screenshot.
+3. Export a duel conversation and read the Markdown: two models' answers
+   to the same question, attributed, in one shareable file.
+
+## Chapter 11 — Multimodal chat, and what "professional" actually means
+
+### Sending an image to a model
+
+The chat pipeline spoke plain text: `content` was a string, end of story.
+The OpenAI dialect has a second form — a *parts array* mixing
+`{type: "text"}` and `{type: "image_url"}` entries, with images embedded as
+base64 data URIs — and Ollama's compatible endpoint accepts it for vision
+models. The whole feature hangs on one method: `ChatMessage.toOpenAi()` now
+emits the parts array *only when images are attached*, so text-only engines
+never see anything new. Same principle as the sampling knobs in chapter 5:
+absent means unchanged.
+
+Documents took a different path on purpose. A model doesn't "open" a PDF —
+apps extract the text and smuggle it into the prompt. So attaching a
+document runs a pure-Dart PDF text extractor (or reads the file as UTF-8),
+truncates to a sane budget, and stores it as `docText` — sent to the model
+under an `[Attached document: name]` header, but shown in the transcript as
+just a small file chip. The visible conversation stays readable; the model
+sees everything.
+
+The honest limits, worth knowing: vision models *understand* images, they
+don't produce them (that's diffusion territory — Stable Diffusion, not
+Ollama); scanned PDFs have no text layer to extract; and pasting a 500-page
+book into a 4k-context model mostly wastes the middle.
+
+### A terminal you'd actually keep open
+
+The first terminal ran commands; this one behaves like a tool: ↑/↓ recalls
+history (a `Focus` widget intercepting arrow keys before the TextField),
+the header is a drag-splitter (`GestureDetector` adjusting a height
+provider, clamped 140–560), quick chips run the three commands everyone
+types anyway, and the scrollback sits on the darker `bg` so output reads as
+a distinct surface from the chrome.
+
+### Polish is mostly restraint
+
+The "make it professional" pass was five small mechanical things, not a
+redesign: a cross-fade between tabs (160ms — perceptible, not decorative);
+autoscroll that *stops fighting you* when you scroll up mid-stream, with a
+return-to-bottom pill; starter-prompt chips on the empty state so a blank
+screen suggests its own first move; a focus ring on the composer; and the
+brand glyph in the header. None of these add capability. All of them add
+the feeling that someone finished the room.

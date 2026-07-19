@@ -29,6 +29,22 @@ class HostServer {
 
   Future<void> _handle(HttpRequest req) async {
     try {
+      // CORS: lets browser apps (e.g. Classmate AI at visionarysparks.in) use
+      // this engine from the same machine. Preflights carry no pairing header
+      // by design, so they're answered before the code check — every real
+      // request below still needs the 6-digit code, which stays the actual
+      // auth. Allow-Private-Network satisfies Chrome's PNA preflight for
+      // public-site → loopback requests.
+      req.response.headers
+        ..set('Access-Control-Allow-Origin', '*')
+        ..set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        ..set('Access-Control-Allow-Headers', 'content-type, authorization, $kPairingHeader')
+        ..set('Access-Control-Allow-Private-Network', 'true');
+      if (req.method == 'OPTIONS') {
+        req.response.statusCode = HttpStatus.noContent;
+        await req.response.close();
+        return;
+      }
       if (req.headers.value(kPairingHeader) != pairingCode) {
         req.response
           ..statusCode = HttpStatus.unauthorized

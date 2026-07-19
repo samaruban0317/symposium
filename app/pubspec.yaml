@@ -1,7 +1,7 @@
 name: symposium
 description: "A gathering of minds — run, compare, connect, and train local LLMs. A Visionary Sparks product."
 publish_to: "none"
-version: 0.2.0
+version: 0.2.1
 
 environment:
   sdk: ">=3.4.0 <5.0.0"

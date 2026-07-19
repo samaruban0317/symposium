@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 
 /// Shown in the About dialog — keep in sync with pubspec.yaml `version:`.
-const String kSymVersion = '0.2.0';
+const String kSymVersion = '0.2.1';
 
 const String _siteUrl = 'https://visionarysparks.in/symposium';
 const String _repoUrl = 'https://github.com/samaruban0317/symposium';

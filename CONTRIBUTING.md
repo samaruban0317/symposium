@@ -1,8 +1,8 @@
 # Contributing to Symposium
 
-Thanks for even reading this file. Symposium is a young project built in public by
-someone learning as they go — contributions of every size are welcome, including
-"this doc confused me" issues.
+Thanks for even reading this file. Symposium is a young [Visionary Sparks](https://visionarysparks.in/symposium)
+project built in public by people learning as they go — contributions of every size
+are welcome, including "this doc confused me" issues.
 
 ## Ways to help
 

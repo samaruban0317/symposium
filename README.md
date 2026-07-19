@@ -4,6 +4,10 @@
 devices on your network, compare two models side by side, and train your own small
 model — all from one app that installs on Windows (`.exe`) and Android (`.apk`).
 
+A **[Visionary Sparks](https://visionarysparks.in/symposium)** product — the hands-on
+ML lab alongside [Classmate AI](https://visionarysparks.in). Free, open source, and
+everything runs on your own hardware.
+
 > *In Plato's Symposium, thinkers gathered to talk. Here, the thinkers are language
 > models — yours, your friends', and eventually one you trained yourself.*
 
@@ -69,4 +73,4 @@ Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[Apache-2.0](LICENSE) © Samaruban and contributors.
+[Apache-2.0](LICENSE) © Visionary Sparks (Samaruban) and contributors.

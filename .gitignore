@@ -38,3 +38,5 @@ dist/
 *.log
 Thumbs.db
 desktop.ini
+
+app/android/build/

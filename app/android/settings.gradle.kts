@@ -19,7 +19,11 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "9.0.1" apply false
+    // Pinned to the 8.x line on purpose: with AGP 9's built-in Kotlin the
+    // current plugin set deadlocks — file_picker skips applying the Kotlin
+    // plugin on AGP >= 9 while jni still applies it, so one of them always
+    // fails to build. Revisit when both have migrated.
+    id("com.android.application") version "8.13.2" apply false
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 

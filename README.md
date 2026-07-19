@@ -29,7 +29,9 @@ training one — happens by clicking inside the app.**
 | 4¾ | **Daily-driver release** — conversation history with Markdown export, full model-library browser (RAM-fit colored per device, vision/tools filters), image & PDF attachments for vision models, built-in resizable terminal, light/dark themes, join-by-IP pairing fallback, phone-first responsive UI | ✅ |
 | 5 | Bundled llama.cpp engine — fully self-contained, no external installs | planned |
 | 6 | **Training studio** — Python trainer service exists (tiny GPT, live-metrics WebSocket, chat with checkpoints); in-app UI next | ⏳ backend |
-| 7 | Packaged installers, signed APK, CI | planned |
+| 7 | Public downloads (Windows zip + Android APK via GitHub Releases) | ✅ |
+| 8 | **Symposium Link** — join a friend's model across the internet with a short code (no port forwarding, no code); until then, join-by-IP works over the internet if the host forwards a port | planned |
+| 9 | Packaged installers, signed APK, Play Store, CI | planned |
 
 ## Architecture in one paragraph
 
@@ -48,17 +50,23 @@ symposium/
     LEARN.md The full "teach me everything from scratch" companion book
 ```
 
-## Getting started (Windows, phase 1)
+## Get it
 
-1. Install [Ollama](https://ollama.com) (the app will manage models through it — no terminal needed).
-2. Install [Flutter](https://docs.flutter.dev/get-started/install/windows) (only needed to build from source).
-3. ```
+**Download**: [Windows (.zip)](https://github.com/samaruban0317/symposium/releases/latest/download/Symposium-windows.zip) ·
+[Android (.apk)](https://github.com/samaruban0317/symposium/releases/latest/download/Symposium-android.apk) ·
+or visit [visionarysparks.in/symposium](https://visionarysparks.in/symposium).
+
+Windows: extract the zip, install [Ollama](https://ollama.com) once (Symposium drives it — no terminal), run `symposium.exe`.
+Android: install the APK; it auto-discovers any PC running Symposium in host mode on your Wi-Fi.
+
+## Building from source
+
+1. Install [Flutter](https://docs.flutter.dev/get-started/install/windows).
+2. ```
    cd app
    flutter pub get
    flutter run -d windows
    ```
-
-Pre-built installers arrive in phase 7.
 
 ## Learning as you go
 

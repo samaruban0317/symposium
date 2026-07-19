@@ -1,7 +1,7 @@
 name: symposium
 description: "A gathering of minds — run, compare, connect, and train local LLMs. A Visionary Sparks product."
 publish_to: "none"
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ">=3.4.0 <5.0.0"
@@ -17,6 +17,8 @@ dependencies:
   # gives us the per-user app-data directory for saved sources and personas.
   path_provider: ^2.1.0
   syncfusion_flutter_pdf: ^34.1.31
+  # Opens visionarysparks.in / GitHub links from the About dialog.
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

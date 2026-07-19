@@ -14,6 +14,7 @@ import '../state/net_state.dart';
 import '../state/sources_contract.dart';
 import '../state/sources_state.dart';
 import '../theme.dart';
+import 'about_dialog.dart';
 import 'pull_dialog.dart';
 import 'widgets.dart';
 
@@ -53,12 +54,16 @@ class Sidebar extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(isCloud ? 'CLOUD · ${active.label.toUpperCase()}' : 'ENGINE',
+                        Text(
+                            isCloud
+                                ? 'CLOUD · ${active.label.toUpperCase()}'
+                                : 'ENGINE',
                             style: Sym.label()),
                         const SizedBox(height: 2),
                         Text(
                           endpoint.replaceFirst(RegExp('^https?://'), ''),
-                          style: Sym.mono(size: 11, color: online ? Sym.ink : Sym.inkFaint),
+                          style: Sym.mono(
+                              size: 11, color: online ? Sym.ink : Sym.inkFaint),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -82,7 +87,8 @@ class Sidebar extends ConsumerWidget {
                 child: SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Sym.amberDim),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Sym.amberDim),
                 ),
               ),
               error: (e, _) => Padding(
@@ -133,20 +139,24 @@ class Sidebar extends ConsumerWidget {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Material(
-                            color: isSel ? Sym.surfaceRaised : Colors.transparent,
+                            color:
+                                isSel ? Sym.surfaceRaised : Colors.transparent,
                             borderRadius: BorderRadius.circular(6),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(6),
-                              onTap: () =>
-                                  ref.read(selectedModelProvider.notifier).state = m.name,
+                              onTap: () => ref
+                                  .read(selectedModelProvider.notifier)
+                                  .state = m.name,
                               child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 9),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border(
                                     left: BorderSide(
-                                      color: isSel ? Sym.amber : Colors.transparent,
+                                      color: isSel
+                                          ? Sym.amber
+                                          : Colors.transparent,
                                       width: 2,
                                     ),
                                   ),
@@ -159,18 +169,23 @@ class Sidebar extends ConsumerWidget {
                                       style: Sym.mono(
                                         size: 12.5,
                                         color: isSel ? Sym.ink : Sym.inkDim,
-                                        weight: isSel ? FontWeight.w600 : FontWeight.w400,
+                                        weight: isSel
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
                                       [
-                                        if (m.parameterSize != null) m.parameterSize!,
-                                        if (m.quantization != null) m.quantization!,
+                                        if (m.parameterSize != null)
+                                          m.parameterSize!,
+                                        if (m.quantization != null)
+                                          m.quantization!,
                                         m.sizeLabel,
                                       ].join(' · '),
-                                      style: Sym.mono(size: 10, color: Sym.inkFaint),
+                                      style: Sym.mono(
+                                          size: 10, color: Sym.inkFaint),
                                     ),
                                   ],
                                 ),
@@ -201,13 +216,26 @@ class Sidebar extends ConsumerWidget {
                   foregroundColor: Sym.amber,
                   side: BorderSide(color: Sym.amberDim),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
                 ),
                 icon: const Icon(Icons.download_outlined, size: 16),
-                label: Text('INSTALL MODEL', style: Sym.label(color: Sym.amber)),
+                label:
+                    Text('INSTALL MODEL', style: Sym.label(color: Sym.amber)),
               ),
             ),
           ],
+          const Divider(height: 1),
+          InkWell(
+            onTap: () => showSymAbout(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Center(
+                child: Text('SYMPOSIUM · BY VISIONARY SPARKS',
+                    style: Sym.label(color: Sym.inkFaint)),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -268,7 +296,8 @@ class Sidebar extends ConsumerWidget {
               if (url.isEmpty) return;
               if (!url.startsWith('http')) url = 'http://$url';
               ref.read(pairingCodeProvider.notifier).state = null;
-              ref.read(endpointProvider.notifier).state = url.replaceAll(RegExp(r'/+$'), '');
+              ref.read(endpointProvider.notifier).state =
+                  url.replaceAll(RegExp(r'/+$'), '');
               Navigator.pop(ctx);
             },
             child: Text('CONNECT', style: Sym.label(color: Sym.amber)),
@@ -343,8 +372,8 @@ class _ConversationsSection extends ConsumerWidget {
                         closeDrawerIfOpen();
                       },
                       child: Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 5),
                         decoration: BoxDecoration(
                           border: Border(
                             left: BorderSide(
@@ -372,7 +401,8 @@ class _ConversationsSection extends ConsumerWidget {
                                   const SizedBox(height: 1),
                                   Text(
                                     '${_relativeTime(c.updatedAt)} · ${c.messages.length} msg',
-                                    style: Sym.mono(size: 9.5, color: Sym.inkFaint),
+                                    style: Sym.mono(
+                                        size: 9.5, color: Sym.inkFaint),
                                   ),
                                 ],
                               ),
@@ -424,7 +454,8 @@ class _ConversationMenu extends ConsumerWidget {
                   style: Sym.mono(size: 11, color: Sym.ink))),
           PopupMenuItem(
               value: 'delete',
-              child: Text('delete', style: Sym.mono(size: 11, color: Sym.danger))),
+              child:
+                  Text('delete', style: Sym.mono(size: 11, color: Sym.danger))),
         ],
       );
 
@@ -463,14 +494,15 @@ void _showRenameDialog(BuildContext context, WidgetRef ref, Conversation c) {
             Navigator.pop(ctx);
           },
           decoration: InputDecoration(
-            enabledBorder:
-                UnderlineInputBorder(borderSide: BorderSide(color: Sym.hairline)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Sym.hairline)),
           ),
         ),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx), child: Text('CANCEL', style: Sym.label())),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: Sym.label())),
         TextButton(
           onPressed: () {
             final t = ctrl.text.trim();
@@ -545,11 +577,14 @@ class _CloudSection extends ConsumerWidget {
                     ref.read(endpointProvider.notifier).state = s.baseUrl;
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                     decoration: BoxDecoration(
                       border: Border(
                         left: BorderSide(
-                          color: s.baseUrl == endpoint ? Sym.amber : Colors.transparent,
+                          color: s.baseUrl == endpoint
+                              ? Sym.amber
+                              : Colors.transparent,
                           width: 2,
                         ),
                       ),
@@ -557,7 +592,8 @@ class _CloudSection extends ConsumerWidget {
                     child: Row(
                       children: [
                         const SizedBox(width: 4),
-                        Icon(Icons.cloud_outlined, size: 13, color: Sym.tealDim),
+                        Icon(Icons.cloud_outlined,
+                            size: 13, color: Sym.tealDim),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
@@ -565,10 +601,13 @@ class _CloudSection extends ConsumerWidget {
                             children: [
                               Text(s.label,
                                   style: Sym.mono(
-                                      size: 11.5, color: Sym.ink, weight: FontWeight.w600),
+                                      size: 11.5,
+                                      color: Sym.ink,
+                                      weight: FontWeight.w600),
                                   overflow: TextOverflow.ellipsis),
                               Text(
-                                s.baseUrl.replaceFirst(RegExp('^https?://'), ''),
+                                s.baseUrl
+                                    .replaceFirst(RegExp('^https?://'), ''),
                                 style: Sym.mono(size: 9.5, color: Sym.inkFaint),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -608,15 +647,18 @@ class _CloudMenu extends ConsumerWidget {
         itemBuilder: (_) => [
           PopupMenuItem(
               value: 'key',
-              child: Text('change key', style: Sym.mono(size: 11, color: Sym.ink))),
+              child: Text('change key',
+                  style: Sym.mono(size: 11, color: Sym.ink))),
           PopupMenuItem(
               value: 'remove',
-              child: Text('remove', style: Sym.mono(size: 11, color: Sym.danger))),
+              child:
+                  Text('remove', style: Sym.mono(size: 11, color: Sym.danger))),
         ],
       );
 }
 
-void _showEditKeyDialog(BuildContext context, WidgetRef ref, ModelSource source) {
+void _showEditKeyDialog(
+    BuildContext context, WidgetRef ref, ModelSource source) {
   final ctrl = TextEditingController();
   showDialog<void>(
     context: context,
@@ -633,14 +675,15 @@ void _showEditKeyDialog(BuildContext context, WidgetRef ref, ModelSource source)
           decoration: InputDecoration(
             hintText: presetFor(source.providerId).keyHint,
             hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
-            enabledBorder:
-                UnderlineInputBorder(borderSide: BorderSide(color: Sym.hairline)),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Sym.hairline)),
           ),
         ),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx), child: Text('CANCEL', style: Sym.label())),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: Sym.label())),
         TextButton(
           onPressed: () {
             final key = ctrl.text.trim();
@@ -675,7 +718,10 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
           if (key.isEmpty) return;
           final chosen = custom
               ? const CloudPreset(
-                  id: 'custom', label: 'Custom', baseUrl: '', keyHint: 'API key')
+                  id: 'custom',
+                  label: 'Custom',
+                  baseUrl: '',
+                  keyHint: 'API key')
               : preset;
           final url = custom ? urlCtrl.text.trim() : null;
           if (custom && (url == null || url.isEmpty)) return;
@@ -772,10 +818,11 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
                     SizedBox(
                         width: 12,
                         height: 12,
-                        child:
-                            CircularProgressIndicator(strokeWidth: 2, color: Sym.amberDim)),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Sym.amberDim)),
                     const SizedBox(width: 8),
-                    Text('checking the key…', style: Sym.mono(size: 10, color: Sym.inkDim)),
+                    Text('checking the key…',
+                        style: Sym.mono(size: 10, color: Sym.inkDim)),
                   ])
                 else if (status != null)
                   Text(status!,
@@ -802,7 +849,8 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
               ),
             TextButton(
               onPressed: busy ? null : () => validateAndSave(saveAnyway: false),
-              child: Text('VALIDATE & SAVE', style: Sym.label(color: Sym.amber)),
+              child:
+                  Text('VALIDATE & SAVE', style: Sym.label(color: Sym.amber)),
             ),
           ],
         );
@@ -811,7 +859,8 @@ void _showAddCloudDialog(BuildContext context, WidgetRef ref) {
   );
 }
 
-Widget _providerChip(String label, bool selected, VoidCallback onTap) => InkWell(
+Widget _providerChip(String label, bool selected, VoidCallback onTap) =>
+    InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: Container(
@@ -874,7 +923,11 @@ class _NetworkSection extends ConsumerWidget {
                 const SizedBox(width: 8),
                 SelectableText(
                   host!.code,
-                  style: Sym.mono(size: 16, color: Sym.teal, weight: FontWeight.w600, spacing: 3),
+                  style: Sym.mono(
+                      size: 16,
+                      color: Sym.teal,
+                      weight: FontWeight.w600,
+                      spacing: 3),
                 ),
               ],
             ),
@@ -896,7 +949,8 @@ class _NetworkSection extends ConsumerWidget {
             ],
           ] else if (host?.error != null) ...[
             const SizedBox(height: 4),
-            Text(host!.error!, style: Sym.mono(size: 9.5, color: Sym.danger), maxLines: 2),
+            Text(host!.error!,
+                style: Sym.mono(size: 9.5, color: Sym.danger), maxLines: 2),
           ],
           const SizedBox(height: 10),
           Row(
@@ -906,7 +960,8 @@ class _NetworkSection extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(4),
                 onTap: () => _joinByIp(context, ref),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   child: Text('JOIN BY IP',
                       style: Sym.label(color: Sym.tealDim, size: 8.5)),
                 ),
@@ -933,10 +988,12 @@ class _NetworkSection extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(6),
                         onTap: () => _connectToPeer(context, ref, p),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 6),
                           child: Row(
                             children: [
-                              Icon(Icons.dns_outlined, size: 13, color: Sym.tealDim),
+                              Icon(Icons.dns_outlined,
+                                  size: 13, color: Sym.tealDim),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -944,17 +1001,21 @@ class _NetworkSection extends ConsumerWidget {
                                   children: [
                                     Text(p.name,
                                         style: Sym.mono(
-                                            size: 11.5, color: Sym.ink, weight: FontWeight.w600),
+                                            size: 11.5,
+                                            color: Sym.ink,
+                                            weight: FontWeight.w600),
                                         overflow: TextOverflow.ellipsis),
                                     Text(
                                       '${p.address} · ${p.models.length} model${p.models.length == 1 ? '' : 's'}',
-                                      style: Sym.mono(size: 9.5, color: Sym.inkFaint),
+                                      style: Sym.mono(
+                                          size: 9.5, color: Sym.inkFaint),
                                     ),
                                   ],
                                 ),
                               ),
                               if (p.pairing)
-                                Icon(Icons.lock_outline, size: 12, color: Sym.inkFaint),
+                                Icon(Icons.lock_outline,
+                                    size: 12, color: Sym.inkFaint),
                             ],
                           ),
                         ),
@@ -978,7 +1039,9 @@ class _NetworkSection extends ConsumerWidget {
     void connect(BuildContext ctx) {
       var addr = ipCtrl.text.trim();
       if (addr.isEmpty) return;
-      addr = addr.replaceFirst(RegExp('^https?://'), '').replaceAll(RegExp(r'/+$'), '');
+      addr = addr
+          .replaceFirst(RegExp('^https?://'), '')
+          .replaceAll(RegExp(r'/+$'), '');
       if (!addr.contains(':')) addr = '$addr:$kProxyPort';
       final code = codeCtrl.text.trim();
       ref.read(pairingCodeProvider.notifier).state = code.isEmpty ? null : code;
@@ -1046,7 +1109,8 @@ class _NetworkSection extends ConsumerWidget {
     );
   }
 
-  void _connectToPeer(BuildContext context, WidgetRef ref, DiscoveredHost peer) {
+  void _connectToPeer(
+      BuildContext context, WidgetRef ref, DiscoveredHost peer) {
     final ctrl = TextEditingController();
 
     void connect(BuildContext ctx) {
@@ -1135,13 +1199,15 @@ class _PullBanner extends ConsumerWidget {
               Expanded(
                 child: Text(
                   pull.model,
-                  style: Sym.mono(size: 11.5, color: Sym.ink, weight: FontWeight.w600),
+                  style: Sym.mono(
+                      size: 11.5, color: Sym.ink, weight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (pull.done || failed)
                 GestureDetector(
-                  onTap: () => ref.read(pullControllerProvider.notifier).dismiss(),
+                  onTap: () =>
+                      ref.read(pullControllerProvider.notifier).dismiss(),
                   child: Icon(Icons.close, size: 13, color: Sym.inkFaint),
                 ),
             ],
@@ -1159,7 +1225,8 @@ class _PullBanner extends ConsumerWidget {
               pull.done
                   ? 'ready — it is in your model list'
                   : '${pull.status}${pull.fraction != null ? '  ${(pull.fraction! * 100).toStringAsFixed(0)}%' : ''}',
-              style: Sym.mono(size: 10, color: pull.done ? Sym.teal : Sym.inkDim),
+              style:
+                  Sym.mono(size: 10, color: pull.done ? Sym.teal : Sym.inkDim),
             ),
           ] else
             Text(pull.error!, style: Sym.mono(size: 10, color: Sym.danger)),

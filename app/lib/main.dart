@@ -18,7 +18,7 @@ class SymposiumApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = ref.watch(darkModeProvider);
     return MaterialApp(
-      title: 'Symposium',
+      title: 'Symposium — by Visionary Sparks',
       debugShowCheckedModeBanner: false,
       theme: Sym.theme(),
       // Re-keying on toggle remounts the tree, so even const widgets rebuild

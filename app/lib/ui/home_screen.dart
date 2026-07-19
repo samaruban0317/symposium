@@ -8,6 +8,7 @@ import '../state/arena_state.dart';
 import '../state/settings_state.dart';
 import '../state/terminal_state.dart';
 import '../theme.dart';
+import 'about_dialog.dart';
 import 'arena/arena_view.dart';
 import 'chat_view.dart';
 import 'persona/studio_view.dart';
@@ -47,14 +48,17 @@ class HomeScreen extends ConsumerWidget {
                 onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
             ),
-          Text('☙', style: Sym.display(size: wide ? 17 : 15, color: Sym.amberDim)),
+          Text('☙',
+              style: Sym.display(size: wide ? 17 : 15, color: Sym.amberDim)),
           const SizedBox(width: 8),
           Flexible(
             child: Text('Symposium',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Sym.display(
-                    size: wide ? 21 : 18, weight: FontWeight.w600, color: Sym.ink)),
+                    size: wide ? 21 : 18,
+                    weight: FontWeight.w600,
+                    color: Sym.ink)),
           ),
           if (wide) ...[
             const SizedBox(width: 10),
@@ -70,19 +74,22 @@ class HomeScreen extends ConsumerWidget {
             _HeaderTab(
               label: 'CHAT',
               active: onChat,
-              onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.chat,
+              onTap: () =>
+                  ref.read(homeTabProvider.notifier).state = HomeTab.chat,
             ),
             const SizedBox(width: 2),
             _HeaderTab(
               label: 'ARENA',
               active: tab == HomeTab.arena,
-              onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.arena,
+              onTap: () =>
+                  ref.read(homeTabProvider.notifier).state = HomeTab.arena,
             ),
             const SizedBox(width: 2),
             _HeaderTab(
               label: 'STUDIO',
               active: tab == HomeTab.studio,
-              onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.studio,
+              onTap: () =>
+                  ref.read(homeTabProvider.notifier).state = HomeTab.studio,
             ),
           ],
           const Spacer(),
@@ -98,8 +105,17 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             tooltip: Sym.isDark ? 'Daylight theme' : 'Lamplight theme',
             onPressed: () => setDarkMode(ref, !Sym.isDark),
-            icon: Icon(Sym.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                size: 17, color: Sym.inkDim),
+            icon: Icon(
+                Sym.isDark
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+                size: 17,
+                color: Sym.inkDim),
+          ),
+          IconButton(
+            tooltip: 'About Symposium — a Visionary Sparks product',
+            onPressed: () => showSymAbout(context),
+            icon: Icon(Icons.info_outline, size: 17, color: Sym.inkDim),
           ),
           if (hasShell)
             IconButton(
@@ -114,7 +130,8 @@ class HomeScreen extends ConsumerWidget {
               tooltip: 'New conversation',
               onPressed: () =>
                   ref.read(chatControllerProvider.notifier).newConversation(),
-              icon: Icon(Icons.add_comment_outlined, size: 17, color: Sym.inkDim),
+              icon:
+                  Icon(Icons.add_comment_outlined, size: 17, color: Sym.inkDim),
             ),
           const SizedBox(width: 4),
           StatusDot(online: online),
@@ -124,7 +141,10 @@ class HomeScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      drawer: wide ? null : Drawer(backgroundColor: Sym.surface, child: SafeArea(child: Sidebar())),
+      drawer: wide
+          ? null
+          : Drawer(
+              backgroundColor: Sym.surface, child: SafeArea(child: Sidebar())),
       // SafeArea keeps the header out from under the status bar and the
       // composer above the gesture bar on edge-to-edge Android builds.
       body: SafeArea(
@@ -226,7 +246,8 @@ class _HeaderTab extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
-  const _HeaderTab({required this.label, required this.active, required this.onTap});
+  const _HeaderTab(
+      {required this.label, required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) => InkWell(

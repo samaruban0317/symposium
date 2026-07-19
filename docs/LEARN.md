@@ -804,3 +804,18 @@ return-to-bottom pill; starter-prompt chips on the empty state so a blank
 screen suggests its own first move; a focus ring on the composer; and the
 brand glyph in the header. None of these add capability. All of them add
 the feeling that someone finished the room.
+
+### Postscript to chapter 10: VRAM is the real ceiling
+
+Field report from this very machine: gemma3:12b (7.6 GB of weights) on an
+RTX with 6 GB of VRAM produced 3.6 tok/s with the CPU pinned at 96% and
+the GPU loafing at 20%. Nothing was broken — Ollama fit what it could into
+VRAM and streamed the rest through the CPU, and the CPU set the pace.
+Meanwhile a 1.5b model on the same machine flies, because it fits entirely
+on the GPU.
+
+So the requirements feature learned the distinction: the app now also asks
+nvidia-smi for dedicated GPU memory, and a size chip is teal only when the
+model fits *in VRAM* (fully-on-GPU fast). Fits-in-RAM-but-not-VRAM is
+amber — it will run, slowly, exactly like the 12b did. System RAM tells
+you whether a model *can* run; VRAM tells you whether you'll *enjoy* it.

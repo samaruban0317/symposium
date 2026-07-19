@@ -50,6 +50,7 @@ class _PullDialogState extends ConsumerState<PullDialog> {
   Widget build(BuildContext context) {
     final catalog = ref.watch(catalogProvider);
     final ramGb = ref.watch(deviceRamGbProvider).valueOrNull;
+    final vramGb = ref.watch(deviceVramGbProvider).valueOrNull;
     final maxH = MediaQuery.sizeOf(context).height * 0.6;
 
     return AlertDialog(
@@ -75,8 +76,9 @@ class _PullDialogState extends ConsumerState<PullDialog> {
             Text(
               ramGb == null
                   ? 'Downloads happen inside the app — no terminal needed.'
-                  : 'this device has ${ramGb.toStringAsFixed(0)} GB RAM — '
-                      'sizes are colored by what fits',
+                  : 'this device: ${ramGb.toStringAsFixed(0)} GB RAM'
+                      '${vramGb == null ? '' : ' · ${vramGb.toStringAsFixed(0)} GB GPU'}'
+                      '  —  teal runs fast, amber runs slow',
               style: Sym.mono(size: 11, color: Sym.inkDim),
             ),
             const SizedBox(height: 10),
@@ -157,6 +159,7 @@ class _PullDialogState extends ConsumerState<PullDialog> {
                     itemBuilder: (_, i) => _CatalogTile(
                       entry: list[i],
                       deviceRamGb: ramGb,
+                      deviceVramGb: vramGb,
                       onInstall: _start,
                     ),
                   );
@@ -187,27 +190,52 @@ class _PullDialogState extends ConsumerState<PullDialog> {
 class _CatalogTile extends StatelessWidget {
   final CatalogEntry entry;
   final double? deviceRamGb;
+  final double? deviceVramGb;
   final ValueChanged<String> onInstall;
 
-  const _CatalogTile(
-      {required this.entry, required this.deviceRamGb, required this.onInstall});
+  const _CatalogTile({
+    required this.entry,
+    required this.deviceRamGb,
+    required this.deviceVramGb,
+    required this.onInstall,
+  });
 
-  /// fits comfortably → teal · tight squeeze → amber · won't fit → danger.
+  /// The verdict that matters in practice:
+  ///   teal   — weights + cache fit in VRAM → runs fully on the GPU, fast
+  ///   amber  — fits in system RAM but not VRAM → Ollama splits it across
+  ///            GPU and CPU and the CPU sets the pace (slow, GPU half idle)
+  ///   danger — bigger than RAM → paging misery or refusal
+  /// Without a detected GPU, teal just means "fits in RAM comfortably".
   Color _fitColor(ModelReqs? reqs) {
-    if (reqs == null || deviceRamGb == null) return Sym.teal;
-    if (reqs.ramGB <= deviceRamGb! * 0.75) return Sym.teal;
+    if (reqs == null) return Sym.teal;
+    if (deviceVramGb != null && reqs.ramGB <= deviceVramGb!) return Sym.teal;
+    if (deviceRamGb == null) return deviceVramGb == null ? Sym.teal : Sym.amber;
+    if (deviceVramGb == null && reqs.ramGB <= deviceRamGb! * 0.75) return Sym.teal;
     if (reqs.ramGB <= deviceRamGb!) return Sym.amber;
     return Sym.danger;
   }
 
+  String _fitNote(ModelReqs reqs) {
+    if (deviceVramGb != null && reqs.ramGB <= deviceVramGb!) {
+      return '\nfits your GPU — will run fast';
+    }
+    if (deviceRamGb != null && reqs.ramGB > deviceRamGb!) {
+      return '\nmore than this device has — will run very slowly if at all';
+    }
+    if (deviceVramGb != null) {
+      return '\nbigger than your ${deviceVramGb!.toStringAsFixed(0)} GB GPU — '
+          'will spill to CPU and run slowly';
+    }
+    return '';
+  }
+
   Widget _sizeChip(String size, ModelReqs? reqs) {
     final color = _fitColor(reqs);
-    final wontFit = deviceRamGb != null && reqs != null && reqs.ramGB > deviceRamGb!;
     return Tooltip(
       message: reqs == null
           ? 'install ${size.isEmpty ? 'this tag' : size}'
-          : 'download ~${reqs.downloadLabel} · needs ~${reqs.ramLabel} RAM'
-              '${wontFit ? '\nmore than this device has — will run very slowly if at all' : ''}',
+          : 'download ~${reqs.downloadLabel} · needs ~${reqs.ramLabel}'
+              '${_fitNote(reqs)}',
       textStyle: Sym.mono(size: 10, color: Sym.ink),
       child: InkWell(
         borderRadius: BorderRadius.circular(4),

@@ -20,7 +20,6 @@ class Pressable extends StatefulWidget {
   final String? tooltip;
   final double pressScale;
   final bool hoverFade; // brighten slightly on hover
-  final BorderRadius? borderRadius;
 
   const Pressable({
     super.key,
@@ -29,7 +28,6 @@ class Pressable extends StatefulWidget {
     this.tooltip,
     this.pressScale = 0.94,
     this.hoverFade = false,
-    this.borderRadius,
   });
 
   @override

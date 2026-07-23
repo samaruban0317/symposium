@@ -121,7 +121,6 @@ class _ChatViewState extends ConsumerState<ChatView> {
                             ignoring: _nearBottom,
                             child: Pressable(
                               tooltip: 'Jump to latest',
-                              borderRadius: BorderRadius.circular(999),
                               onTap: () {
                                 _scroll
                                     .jumpTo(_scroll.position.maxScrollExtent);
@@ -775,7 +774,6 @@ class _ComposerState extends ConsumerState<_Composer> {
                     ? Pressable(
                         tooltip: 'Stop generation',
                         onTap: widget.onStop,
-                        borderRadius: BorderRadius.circular(9),
                         child: Container(
                           width: 34,
                           height: 34,
@@ -790,7 +788,6 @@ class _ComposerState extends ConsumerState<_Composer> {
                     : Pressable(
                         tooltip: 'Send',
                         onTap: widget.enabled ? widget.onSend : null,
-                        borderRadius: BorderRadius.circular(9),
                         child: AnimatedContainer(
                           duration: Sym.fast,
                           curve: Sym.ease,

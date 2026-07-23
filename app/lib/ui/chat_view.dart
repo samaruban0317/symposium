@@ -107,38 +107,54 @@ class _ChatViewState extends ConsumerState<ChatView> {
                         ),
                       ),
                     ),
-                    if (!_nearBottom)
-                      Positioned(
-                        right: 20,
-                        bottom: 12,
-                        child: Material(
-                          color: Sym.surfaceRaised,
-                          shape: const CircleBorder(),
-                          elevation: 3,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () {
-                              _scroll.jumpTo(_scroll.position.maxScrollExtent);
-                              setState(() => _nearBottom = true);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(9),
-                              child: Icon(Icons.arrow_downward,
-                                  size: 16, color: Sym.amber),
+                    Positioned(
+                      right: 20,
+                      bottom: 12,
+                      child: AnimatedScale(
+                        scale: _nearBottom ? 0 : 1,
+                        duration: Sym.med,
+                        curve: Sym.ease,
+                        child: AnimatedOpacity(
+                          opacity: _nearBottom ? 0 : 1,
+                          duration: Sym.med,
+                          child: IgnorePointer(
+                            ignoring: _nearBottom,
+                            child: Pressable(
+                              tooltip: 'Jump to latest',
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: () {
+                                _scroll
+                                    .jumpTo(_scroll.position.maxScrollExtent);
+                                setState(() => _nearBottom = true);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(9),
+                                decoration: BoxDecoration(
+                                  color: Sym.surfaceRaised,
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: Sym.hairline),
+                                  boxShadow: Sym.lift(strength: 0.8),
+                                ),
+                                child: Icon(Icons.arrow_downward_rounded,
+                                    size: 16, color: Sym.amber),
+                              ),
                             ),
                           ),
                         ),
                       ),
+                    ),
                   ],
                 ),
         ),
         if (chat.error != null)
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.fromLTRB(24, 0, 24, 6),
+            padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              border: Border.all(color: Sym.danger),
-              borderRadius: BorderRadius.circular(6),
+              color: Sym.danger.withValues(alpha: 0.08),
+              border: Border.all(color: Sym.danger.withValues(alpha: 0.6)),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
@@ -187,55 +203,128 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('☙', style: Sym.display(size: 34, color: Sym.amberDim)),
-              const SizedBox(height: 14),
-              Text('The floor is yours.',
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: _FadeInUp(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('☙', style: Sym.display(size: 38, color: Sym.amberDim)),
+                const SizedBox(height: 16),
+                Text('The floor is yours.',
+                    textAlign: TextAlign.center,
+                    style: Sym.display(size: 30, weight: FontWeight.w400)),
+                const SizedBox(height: 10),
+                Text(
+                  model == null
+                      ? 'connect an engine and choose a model to begin'
+                      : 'speaking with  $model',
                   textAlign: TextAlign.center,
-                  style: Sym.display(size: 30, weight: FontWeight.w400)),
-              const SizedBox(height: 10),
-              Text(
-                model == null
-                    ? 'connect an engine and choose a model to begin'
-                    : 'speaking with  $model',
-                style: Sym.mono(size: 11.5, color: Sym.inkDim, spacing: 0.5),
-              ),
-              if (model != null) ...[
-                const SizedBox(height: 26),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final (label, prompt) in _starters)
-                      InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: () => onSuggest(prompt),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Sym.hairline),
-                          ),
-                          child: Text(label,
-                              style: Sym.mono(size: 11, color: Sym.inkDim)),
-                        ),
-                      ),
-                  ],
+                  style: Sym.mono(size: 11.5, color: Sym.inkDim, spacing: 0.5),
                 ),
-                const SizedBox(height: 8),
-                Text('or attach an image or document with the paperclip',
-                    style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+                if (model != null) ...[
+                  const SizedBox(height: 28),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        for (final (label, prompt) in _starters)
+                          _StarterChip(
+                              label: label, onTap: () => onSuggest(prompt)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('or attach an image or document with the paperclip',
+                      style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       );
+}
+
+/// A starter suggestion pill with a warm amber lift on hover — invites the
+/// first click without shouting.
+class _StarterChip extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _StarterChip({required this.label, required this.onTap});
+
+  @override
+  State<_StarterChip> createState() => _StarterChipState();
+}
+
+class _StarterChipState extends State<_StarterChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: Sym.fast,
+            curve: Sym.ease,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: _hover
+                  ? Sym.amber.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              border: Border.all(
+                  color: _hover ? Sym.amberDim : Sym.hairline),
+            ),
+            child: Text(widget.label,
+                style: Sym.mono(
+                    size: 11, color: _hover ? Sym.amber : Sym.inkDim)),
+          ),
+        ),
+      );
+}
+
+/// A one-shot gentle fade-and-rise, used to make the empty state and other
+/// reveals arrive rather than pop.
+class _FadeInUp extends StatefulWidget {
+  final Widget child;
+  const _FadeInUp({required this.child});
+
+  @override
+  State<_FadeInUp> createState() => _FadeInUpState();
+}
+
+class _FadeInUpState extends State<_FadeInUp>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: Sym.slow,
+  )..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(parent: _c, curve: Sym.ease);
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween(begin: const Offset(0, 0.06), end: Offset.zero)
+            .animate(curved),
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 class _MessageBlock extends StatefulWidget {
@@ -323,13 +412,24 @@ class _MessageBlockState extends State<_MessageBlock> {
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onLongPress: widget.editing ? null : _showActionSheet,
-        child: Container(
+        child: AnimatedContainer(
+          duration: Sym.fast,
+          curve: Sym.ease,
           constraints: const BoxConstraints(maxWidth: 780),
           margin: const EdgeInsets.only(bottom: 22, left: 16, right: 16),
-          padding: const EdgeInsets.only(left: 14),
+          padding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
           decoration: BoxDecoration(
-            border:
-                Border(left: BorderSide(color: accent.withValues(alpha: 0.55), width: 2)),
+            borderRadius: BorderRadius.circular(6),
+            // A whisper of the accent under the cursor — enough to say "this
+            // block is live" without turning the transcript into cards.
+            color: _hover && !widget.editing
+                ? accent.withValues(alpha: 0.045)
+                : Colors.transparent,
+            border: Border(
+                left: BorderSide(
+                    color: accent.withValues(
+                        alpha: _hover || widget.streaming ? 0.85 : 0.5),
+                    width: 2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,21 +533,38 @@ class _MsgAction {
   const _MsgAction(this.icon, this.label, this.run);
 }
 
-class _ActionIcon extends StatelessWidget {
+class _ActionIcon extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
   const _ActionIcon({required this.icon, required this.tooltip, required this.onTap});
 
   @override
+  State<_ActionIcon> createState() => _ActionIconState();
+}
+
+class _ActionIconState extends State<_ActionIcon> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) => Tooltip(
-        message: tooltip,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Icon(icon, size: 14, color: Sym.inkDim),
+        message: widget.tooltip,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: Sym.fast,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: _hover ? Sym.hairline.withValues(alpha: 0.6) : null,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Icon(widget.icon,
+                  size: 14, color: _hover ? Sym.ink : Sym.inkDim),
+            ),
           ),
         ),
       );
@@ -567,17 +684,19 @@ class _ComposerState extends ConsumerState<_Composer> {
   Widget build(BuildContext context) {
     final pending = ref.watch(attachmentsProvider);
 
+    final focused = _focus.hasFocus;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+      duration: Sym.med,
+      curve: Sym.ease,
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       constraints: const BoxConstraints(maxWidth: 780),
       decoration: BoxDecoration(
         color: Sym.surfaceRaised,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: _focus.hasFocus
-                ? Sym.amberDim
-                : Sym.hairline),
+            color: focused ? Sym.amber : Sym.hairline,
+            width: focused ? 1.4 : 1),
+        boxShadow: focused ? Sym.glow(Sym.amber) : Sym.lift(strength: 0.6),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -651,19 +770,47 @@ class _ComposerState extends ConsumerState<_Composer> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(7),
                 child: widget.streaming
-                    ? IconButton(
-                        onPressed: widget.onStop,
+                    ? Pressable(
                         tooltip: 'Stop generation',
-                        icon:
-                            Icon(Icons.stop_circle_outlined, color: Sym.danger),
+                        onTap: widget.onStop,
+                        borderRadius: BorderRadius.circular(9),
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: Sym.danger.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(Icons.stop_rounded,
+                              size: 18, color: Sym.danger),
+                        ),
                       )
-                    : IconButton(
-                        onPressed: widget.enabled ? widget.onSend : null,
+                    : Pressable(
                         tooltip: 'Send',
-                        icon: Icon(Icons.arrow_upward,
-                            color: widget.enabled ? Sym.amber : Sym.inkFaint),
+                        onTap: widget.enabled ? widget.onSend : null,
+                        borderRadius: BorderRadius.circular(9),
+                        child: AnimatedContainer(
+                          duration: Sym.fast,
+                          curve: Sym.ease,
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: widget.enabled
+                                ? Sym.amber
+                                : Sym.surface,
+                            borderRadius: BorderRadius.circular(9),
+                            boxShadow: widget.enabled
+                                ? Sym.glow(Sym.amber, strength: 0.7)
+                                : null,
+                          ),
+                          child: Icon(Icons.arrow_upward_rounded,
+                              size: 18,
+                              color: widget.enabled
+                                  ? Sym.bg
+                                  : Sym.inkFaint),
+                        ),
                       ),
               ),
             ],

@@ -88,6 +88,44 @@ abstract class Sym {
   static Color get inkDim => _p.inkDim;
   static Color get inkFaint => _p.inkFaint;
 
+  // ---- Motion ------------------------------------------------------------
+  // Shared timings so every micro-interaction in the app feels like it came
+  // from one hand. Fast = hover/press feedback; med = panels & selections;
+  // slow = view transitions. The curve is the house easing.
+
+  /// Hover, press, and focus feedback — barely-there, never laggy.
+  static const Duration fast = Duration(milliseconds: 120);
+
+  /// Selections, panels opening, chips settling.
+  static const Duration med = Duration(milliseconds: 200);
+
+  /// View cross-fades and larger reveals.
+  static const Duration slow = Duration(milliseconds: 320);
+
+  /// The house easing — a gentle decelerate that reads as "settling", not
+  /// "snapping". Used everywhere so motion stays consistent.
+  static const Curve ease = Curves.easeOutCubic;
+
+  /// Soft ambient lift for raised surfaces (composer, floating buttons,
+  /// dialogs). Tuned per palette so it reads on both ink and paper.
+  static List<BoxShadow> lift({double strength = 1}) => [
+        BoxShadow(
+          color: (isDark ? Colors.black : const Color(0xFF6E6450))
+              .withValues(alpha: (isDark ? 0.35 : 0.14) * strength),
+          blurRadius: 18 * strength,
+          offset: Offset(0, 6 * strength),
+        ),
+      ];
+
+  /// A colored glow, for accent focus rings and live indicators.
+  static List<BoxShadow> glow(Color c, {double strength = 1}) => [
+        BoxShadow(
+          color: c.withValues(alpha: 0.22 * strength),
+          blurRadius: 14 * strength,
+          spreadRadius: 0.5 * strength,
+        ),
+      ];
+
   static TextStyle display({double size = 24, Color? color, FontWeight weight = FontWeight.w500}) =>
       TextStyle(fontFamily: 'Spectral', fontSize: size, color: color ?? _p.ink, fontWeight: weight, height: 1.25);
 

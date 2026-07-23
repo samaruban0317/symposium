@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import '../state/arena_state.dart';
 import '../state/history_state.dart';
 import '../state/net_state.dart';
+import '../state/recent_models_state.dart';
 import '../state/sources_contract.dart';
 import '../state/sources_state.dart';
 import '../theme.dart';
@@ -24,8 +25,10 @@ class Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(sourcesLoadProvider); // hydrate saved sources from disk once
+    ref.watch(recentModelsLoadProvider); // hydrate recent picks from disk once
     final models = ref.watch(modelsProvider);
     final selected = ref.watch(selectedModelProvider);
+    final recent = ref.watch(recentModelsProvider);
     final online = ref.watch(serverOnlineProvider).valueOrNull ?? false;
     final endpoint = ref.watch(endpointProvider);
     final pull = ref.watch(pullControllerProvider);
@@ -80,6 +83,15 @@ class Sidebar extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text('MODELS', style: Sym.label()),
+          ),
+          // Quick switch-back: the models you most recently picked, as tap
+          // chips. Only shown for ones actually available here and not already
+          // selected — so a chip is always a live one-tap jump, never a dud.
+          _RecentModelsRow(
+            recent: recent,
+            selected: selected,
+            available: models.valueOrNull?.map((m) => m.name).toSet(),
+            onPick: (name) => _selectModel(ref, name),
           ),
           Expanded(
             child: models.when(
@@ -144,9 +156,7 @@ class Sidebar extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(6),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(6),
-                              onTap: () => ref
-                                  .read(selectedModelProvider.notifier)
-                                  .state = m.name,
+                              onTap: () => _selectModel(ref, m.name),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 9),
@@ -241,6 +251,13 @@ class Sidebar extends ConsumerWidget {
     );
   }
 
+  /// Pick a model: point the app at it AND log it to recents. One place so
+  /// tapping a model tile and tapping a recent chip stay in perfect sync.
+  void _selectModel(WidgetRef ref, String name) {
+    ref.read(selectedModelProvider.notifier).state = name;
+    ref.read(recentModelsRepoProvider).record(name);
+  }
+
   /// Fire-and-forget `ollama serve`, then re-ping. If the CLI is missing or
   /// the port is already taken this silently does nothing and the offline
   /// message simply stays — no worse than before the click.
@@ -306,6 +323,103 @@ class Sidebar extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The "recent" quick-switch: a compact row of chips for the last models the
+/// user picked, so hopping back to the previous one is a single tap instead of
+/// hunting the list again. Teal edge (the machine side) to read as telemetry,
+/// distinct from the amber selection rail on the list below.
+///
+/// Filtering keeps every chip honest: we drop the currently-selected model
+/// (no point switching to what's already active) and anything not present at
+/// this endpoint. If nothing survives, the row collapses to zero height.
+class _RecentModelsRow extends StatelessWidget {
+  final List<String> recent;
+  final String? selected;
+  final Set<String>? available; // null while the model list is still loading
+  final void Function(String) onPick;
+
+  const _RecentModelsRow({
+    required this.recent,
+    required this.selected,
+    required this.available,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = [
+      for (final name in recent)
+        if (name != selected && (available == null || available!.contains(name)))
+          name,
+    ];
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('RECENT', style: Sym.label(color: Sym.tealDim, size: 8.5)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [for (final n in chips) _RecentChip(name: n, onTap: () => onPick(n))],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentChip extends StatefulWidget {
+  final String name;
+  final VoidCallback onTap;
+  const _RecentChip({required this.name, required this.onTap});
+
+  @override
+  State<_RecentChip> createState() => _RecentChipState();
+}
+
+class _RecentChipState extends State<_RecentChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            constraints: const BoxConstraints(maxWidth: 132),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _hover ? Sym.teal : Sym.hairline),
+              color: _hover ? Sym.surfaceRaised : Colors.transparent,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history, size: 11, color: Sym.tealDim),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    widget.name,
+                    style: Sym.mono(
+                        size: 10.5,
+                        color: _hover ? Sym.ink : Sym.inkDim),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 /// Past conversations — tap to reopen, keep talking, and the same history

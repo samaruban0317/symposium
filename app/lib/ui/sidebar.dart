@@ -42,37 +42,12 @@ class Sidebar extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Endpoint tile
-          InkWell(
+          _EndpointTile(
+            online: online,
+            isCloud: isCloud,
+            label: active.label,
+            endpoint: endpoint,
             onTap: () => _editEndpoint(context, ref, endpoint),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Row(
-                children: [
-                  StatusDot(online: online),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                            isCloud
-                                ? 'CLOUD · ${active.label.toUpperCase()}'
-                                : 'ENGINE',
-                            style: Sym.label()),
-                        const SizedBox(height: 2),
-                        Text(
-                          endpoint.replaceFirst(RegExp('^https?://'), ''),
-                          style: Sym.mono(
-                              size: 11, color: online ? Sym.ink : Sym.inkFaint),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.edit_outlined, size: 14, color: Sym.inkFaint),
-                ],
-              ),
-            ),
           ),
           const Divider(height: 1),
           const _ConversationsSection(),
@@ -83,13 +58,22 @@ class Sidebar extends ConsumerWidget {
           ),
           Expanded(
             child: models.when(
-              loading: () => Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Sym.amberDim),
-                ),
+              loading: () => ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  for (var i = 0; i < 5; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SkeletonBar(width: 130 - i * 12.0, height: 12),
+                          const SizedBox(height: 6),
+                          const SkeletonBar(width: 80, height: 9),
+                        ],
+                      ),
+                    ),
+                ],
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(16),
@@ -135,63 +119,17 @@ class Sidebar extends ConsumerWidget {
                       itemCount: list.length,
                       itemBuilder: (_, i) {
                         final m = list[i];
-                        final isSel = m.name == selected;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Material(
-                            color:
-                                isSel ? Sym.surfaceRaised : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(6),
-                              onTap: () => ref
-                                  .read(selectedModelProvider.notifier)
-                                  .state = m.name,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 9),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: isSel
-                                          ? Sym.amber
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      m.name,
-                                      style: Sym.mono(
-                                        size: 12.5,
-                                        color: isSel ? Sym.ink : Sym.inkDim,
-                                        weight: isSel
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      [
-                                        if (m.parameterSize != null)
-                                          m.parameterSize!,
-                                        if (m.quantization != null)
-                                          m.quantization!,
-                                        m.sizeLabel,
-                                      ].join(' · '),
-                                      style: Sym.mono(
-                                          size: 10, color: Sym.inkFaint),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                        return _ModelTile(
+                          name: m.name,
+                          subtitle: [
+                            if (m.parameterSize != null) m.parameterSize!,
+                            if (m.quantization != null) m.quantization!,
+                            m.sizeLabel,
+                          ].join(' · '),
+                          selected: m.name == selected,
+                          onTap: () => ref
+                              .read(selectedModelProvider.notifier)
+                              .state = m.name,
                         );
                       },
                     ),
@@ -303,6 +241,156 @@ class Sidebar extends ConsumerWidget {
             child: Text('CONNECT', style: Sym.label(color: Sym.amber)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The connection tile at the top of the sidebar — status dot, ENGINE/CLOUD
+/// label, address, and an edit affordance that brightens on hover.
+class _EndpointTile extends StatefulWidget {
+  final bool online;
+  final bool isCloud;
+  final String label;
+  final String endpoint;
+  final VoidCallback onTap;
+
+  const _EndpointTile({
+    required this.online,
+    required this.isCloud,
+    required this.label,
+    required this.endpoint,
+    required this.onTap,
+  });
+
+  @override
+  State<_EndpointTile> createState() => _EndpointTileState();
+}
+
+class _EndpointTileState extends State<_EndpointTile> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: Sym.fast,
+            color: _hover
+                ? Sym.surfaceRaised.withValues(alpha: 0.45)
+                : Colors.transparent,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                StatusDot(online: widget.online),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          widget.isCloud
+                              ? 'CLOUD · ${widget.label.toUpperCase()}'
+                              : 'ENGINE',
+                          style: Sym.label()),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.endpoint.replaceFirst(RegExp('^https?://'), ''),
+                        style: Sym.mono(
+                            size: 11,
+                            color: widget.online ? Sym.ink : Sym.inkFaint),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: _hover ? 1 : 0.5,
+                  duration: Sym.fast,
+                  child: Icon(Icons.edit_outlined,
+                      size: 14, color: _hover ? Sym.amber : Sym.inkFaint),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// A model in the sidebar list. Selected = raised surface + amber rail +
+/// ink text; hover = a faint surface tint. The rail width animates so
+/// selection reads as a small, deliberate shift rather than a flicker.
+class _ModelTile extends StatefulWidget {
+  final String name;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModelTile({
+    required this.name,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  State<_ModelTile> createState() => _ModelTileState();
+}
+
+class _ModelTileState extends State<_ModelTile> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sel = widget.selected;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: Sym.fast,
+            curve: Sym.ease,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: sel
+                  ? Sym.surfaceRaised
+                  : (_hover
+                      ? Sym.surfaceRaised.withValues(alpha: 0.5)
+                      : Colors.transparent),
+              borderRadius: BorderRadius.circular(6),
+              border: Border(
+                left: BorderSide(
+                  color: sel ? Sym.amber : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.name,
+                  style: Sym.mono(
+                    size: 12.5,
+                    color: sel || _hover ? Sym.ink : Sym.inkDim,
+                    weight: sel ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(widget.subtitle,
+                    style: Sym.mono(size: 10, color: Sym.inkFaint)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1214,11 +1302,14 @@ class _PullBanner extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           if (!failed) ...[
-            LinearProgressIndicator(
-              value: pull.fraction,
-              minHeight: 3,
-              backgroundColor: Sym.hairline,
-              color: pull.done ? Sym.teal : Sym.amber,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: pull.fraction,
+                minHeight: 4,
+                backgroundColor: Sym.hairline,
+                color: pull.done ? Sym.teal : Sym.amber,
+              ),
             ),
             const SizedBox(height: 5),
             Text(

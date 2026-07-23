@@ -37,7 +37,8 @@ class _CodeBlock extends StatefulWidget {
   final String code;
   final bool closed; // false while the closing ``` hasn't streamed in yet
 
-  const _CodeBlock({required this.language, required this.code, required this.closed});
+  const _CodeBlock(
+      {required this.language, required this.code, required this.closed});
 
   @override
   State<_CodeBlock> createState() => _CodeBlockState();
@@ -58,9 +59,10 @@ class _CodeBlockState extends State<_CodeBlock> {
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Sym.surface,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Sym.hairline),
         ),
         child: Column(
@@ -75,7 +77,9 @@ class _CodeBlockState extends State<_CodeBlock> {
               child: Row(
                 children: [
                   Text(
-                    widget.language.isEmpty ? 'CODE' : widget.language.toUpperCase(),
+                    widget.language.isEmpty
+                        ? 'CODE'
+                        : widget.language.toUpperCase(),
                     style: Sym.label(size: 9, color: Sym.inkFaint),
                   ),
                   if (!widget.closed) ...[
@@ -84,13 +88,21 @@ class _CodeBlockState extends State<_CodeBlock> {
                   ],
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Copy code',
+                    tooltip: _copied ? 'Copied' : 'Copy code',
                     onPressed: _copy,
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(
-                      _copied ? Icons.check : Icons.copy_all_outlined,
-                      size: 14,
-                      color: _copied ? Sym.teal : Sym.inkDim,
+                    icon: AnimatedSwitcher(
+                      duration: Sym.med,
+                      transitionBuilder: (child, anim) => ScaleTransition(
+                        scale: anim,
+                        child: FadeTransition(opacity: anim, child: child),
+                      ),
+                      child: Icon(
+                        _copied ? Icons.check_rounded : Icons.copy_all_outlined,
+                        key: ValueKey(_copied),
+                        size: 14,
+                        color: _copied ? Sym.teal : Sym.inkDim,
+                      ),
                     ),
                   ),
                 ],
@@ -99,7 +111,8 @@ class _CodeBlockState extends State<_CodeBlock> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.all(12),
-              child: Text(widget.code, style: Sym.mono(size: 12.5, color: Sym.ink)),
+              child: Text(widget.code,
+                  style: Sym.mono(size: 12.5, color: Sym.ink)),
             ),
           ],
         ),

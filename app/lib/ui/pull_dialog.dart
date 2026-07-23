@@ -57,7 +57,8 @@ class _PullDialogState extends ConsumerState<PullDialog> {
       backgroundColor: Sym.surfaceRaised,
       title: Row(
         children: [
-          Expanded(child: Text('Install a model', style: Sym.display(size: 20))),
+          Expanded(
+              child: Text('Install a model', style: Sym.display(size: 20))),
           if (catalog.valueOrNull != null)
             Text(
               catalog.valueOrNull!.live
@@ -104,24 +105,10 @@ class _PullDialogState extends ConsumerState<PullDialog> {
               spacing: 5,
               children: [
                 for (final cap in [null, ..._capFilters])
-                  InkWell(
-                    borderRadius: BorderRadius.circular(999),
+                  _CapChip(
+                    label: cap?.toUpperCase() ?? 'ALL',
+                    selected: _capFilter == cap,
                     onTap: () => setState(() => _capFilter = cap),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                            color: _capFilter == cap ? Sym.amber : Sym.hairline),
-                      ),
-                      child: Text(
-                        cap?.toUpperCase() ?? 'ALL',
-                        style: Sym.label(
-                            size: 8,
-                            color: _capFilter == cap ? Sym.amber : Sym.inkDim),
-                      ),
-                    ),
                   ),
               ],
             ),
@@ -183,11 +170,58 @@ class _PullDialogState extends ConsumerState<PullDialog> {
   }
 }
 
+/// A capability filter pill (ALL / VISION / TOOLS / …). Selected = amber
+/// outline + amber label with a faint fill; hover nudges toward that.
+class _CapChip extends StatefulWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _CapChip(
+      {required this.label, required this.selected, required this.onTap});
+
+  @override
+  State<_CapChip> createState() => _CapChipState();
+}
+
+class _CapChipState extends State<_CapChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = widget.selected;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: Sym.fast,
+          curve: Sym.ease,
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: on ? Sym.amber.withValues(alpha: 0.1) : Colors.transparent,
+            border: Border.all(
+                color: on ? Sym.amber : (_hover ? Sym.inkFaint : Sym.hairline)),
+          ),
+          child: Text(
+            widget.label,
+            style: Sym.label(
+                size: 8,
+                color: on ? Sym.amber : (_hover ? Sym.ink : Sym.inkDim)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// One library model: name + pulls, capability badges, description, and a
 /// chip per size showing its RAM requirement — colored by whether it fits
 /// this device. Tapping the row installs the default tag; a chip installs
 /// that size.
-class _CatalogTile extends StatelessWidget {
+class _CatalogTile extends StatefulWidget {
   final CatalogEntry entry;
   final double? deviceRamGb;
   final double? deviceVramGb;
@@ -200,6 +234,18 @@ class _CatalogTile extends StatelessWidget {
     required this.onInstall,
   });
 
+  @override
+  State<_CatalogTile> createState() => _CatalogTileState();
+}
+
+class _CatalogTileState extends State<_CatalogTile> {
+  bool _hover = false;
+
+  CatalogEntry get entry => widget.entry;
+  double? get deviceRamGb => widget.deviceRamGb;
+  double? get deviceVramGb => widget.deviceVramGb;
+  ValueChanged<String> get onInstall => widget.onInstall;
+
   /// The verdict that matters in practice:
   ///   teal   — weights + cache fit in VRAM → runs fully on the GPU, fast
   ///   amber  — fits in system RAM but not VRAM → Ollama splits it across
@@ -210,7 +256,8 @@ class _CatalogTile extends StatelessWidget {
     if (reqs == null) return Sym.teal;
     if (deviceVramGb != null && reqs.ramGB <= deviceVramGb!) return Sym.teal;
     if (deviceRamGb == null) return deviceVramGb == null ? Sym.teal : Sym.amber;
-    if (deviceVramGb == null && reqs.ramGB <= deviceRamGb! * 0.75) return Sym.teal;
+    if (deviceVramGb == null && reqs.ramGB <= deviceRamGb! * 0.75)
+      return Sym.teal;
     if (reqs.ramGB <= deviceRamGb!) return Sym.amber;
     return Sym.danger;
   }
@@ -256,65 +303,74 @@ class _CatalogTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: Colors.transparent,
-        child: InkWell(
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: Material(
+          color:
+              _hover ? Sym.surface.withValues(alpha: 0.6) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          onTap: () => onInstall(entry.name),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(entry.name,
-                          style: Sym.mono(
-                              size: 12.5, color: Sym.amber, weight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    for (final cap in entry.capabilities) ...[
-                      const SizedBox(width: 5),
-                      Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(3),
-                          border: Border.all(
-                              color: Sym.tealDim.withValues(alpha: 0.6)),
-                        ),
-                        child: Text(cap.toUpperCase(),
-                            style: Sym.label(size: 7, color: Sym.tealDim)),
-                      ),
-                    ],
-                    const Spacer(),
-                    if (entry.pulls != null)
-                      Text('${entry.pulls} pulls',
-                          style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
-                    const SizedBox(width: 6),
-                    Icon(Icons.download_outlined, size: 14, color: Sym.inkFaint),
-                  ],
-                ),
-                if (entry.description.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(entry.description,
-                      style: Sym.mono(size: 10.5, color: Sym.inkDim),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
-                if (entry.sizes.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 4,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => onInstall(entry.name),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      for (final s in entry.sizes)
-                        _sizeChip(s, ModelReqs.forSize(s)),
+                      Flexible(
+                        child: Text(entry.name,
+                            style: Sym.mono(
+                                size: 12.5,
+                                color: Sym.amber,
+                                weight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      for (final cap in entry.capabilities) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                                color: Sym.tealDim.withValues(alpha: 0.6)),
+                          ),
+                          child: Text(cap.toUpperCase(),
+                              style: Sym.label(size: 7, color: Sym.tealDim)),
+                        ),
+                      ],
+                      const Spacer(),
+                      if (entry.pulls != null)
+                        Text('${entry.pulls} pulls',
+                            style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+                      const SizedBox(width: 6),
+                      Icon(Icons.download_outlined,
+                          size: 14, color: Sym.inkFaint),
                     ],
                   ),
+                  if (entry.description.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(entry.description,
+                        style: Sym.mono(size: 10.5, color: Sym.inkDim),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                  if (entry.sizes.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: [
+                        for (final s in entry.sizes)
+                          _sizeChip(s, ModelReqs.forSize(s)),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

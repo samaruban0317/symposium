@@ -57,7 +57,8 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
           : (_historyIndex! - 1).clamp(0, history.length - 1);
     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       if (_historyIndex == null) return KeyEventResult.ignored;
-      _historyIndex = _historyIndex! + 1 >= history.length ? null : _historyIndex! + 1;
+      _historyIndex =
+          _historyIndex! + 1 >= history.length ? null : _historyIndex! + 1;
     } else {
       return KeyEventResult.ignored;
     }
@@ -88,9 +89,9 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
             cursor: SystemMouseCursors.resizeUpDown,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onVerticalDragUpdate: (d) =>
-                  ref.read(terminalHeightProvider.notifier).state =
-                      (height - d.delta.dy).clamp(140.0, 560.0),
+              onVerticalDragUpdate: (d) => ref
+                  .read(terminalHeightProvider.notifier)
+                  .state = (height - d.delta.dy).clamp(140.0, 560.0),
               child: Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -218,25 +219,62 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
                 ),
                 for (final cmd in _quickCommands) ...[
                   const SizedBox(width: 6),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(4),
+                  _QuickCmdChip(
+                    label: cmd,
                     onTap: term.busy ? null : () => _submit(cmd),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Sym.hairline),
-                      ),
-                      child: Text(cmd,
-                          style: Sym.mono(size: 9.5, color: Sym.tealDim)),
-                    ),
                   ),
                 ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A one-tap terminal command chip (ollama list, ipconfig, …). Teal because
+/// these are machine queries; brightens toward teal on hover.
+class _QuickCmdChip extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const _QuickCmdChip({required this.label, required this.onTap});
+
+  @override
+  State<_QuickCmdChip> createState() => _QuickCmdChipState();
+}
+
+class _QuickCmdChipState extends State<_QuickCmdChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: Sym.fast,
+          curve: Sym.ease,
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            color: _hover && enabled
+                ? Sym.tealDim.withValues(alpha: 0.12)
+                : Colors.transparent,
+            border: Border.all(
+                color: _hover && enabled ? Sym.tealDim : Sym.hairline),
+          ),
+          child: Text(widget.label,
+              style: Sym.mono(
+                  size: 9.5,
+                  color: enabled
+                      ? (_hover ? Sym.teal : Sym.tealDim)
+                      : Sym.inkFaint)),
+        ),
       ),
     );
   }
@@ -249,7 +287,10 @@ class _HeaderIcon extends StatelessWidget {
   final VoidCallback onTap;
 
   const _HeaderIcon(
-      {required this.icon, required this.tooltip, this.color, required this.onTap});
+      {required this.icon,
+      required this.tooltip,
+      this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) => Tooltip(

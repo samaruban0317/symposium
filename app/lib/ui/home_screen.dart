@@ -159,8 +159,19 @@ class HomeScreen extends ConsumerWidget {
                     // A quiet cross-fade between tabs — instant-feeling but
                     // not jarring.
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      switchInCurve: Curves.easeOutCubic,
+                      duration: Sym.med,
+                      switchInCurve: Sym.ease,
+                      switchOutCurve: Sym.ease,
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween(
+                                  begin: const Offset(0, 0.015),
+                                  end: Offset.zero)
+                              .animate(anim),
+                          child: child,
+                        ),
+                      ),
                       child: KeyedSubtree(
                         key: ValueKey(tab),
                         child: switch (tab) {
@@ -198,9 +209,14 @@ class _BottomNav extends StatelessWidget {
       return Expanded(
         child: InkWell(
           onTap: () => ref.read(homeTabProvider.notifier).state = target,
-          child: Container(
+          child: AnimatedContainer(
+            duration: Sym.fast,
+            curve: Sym.ease,
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
+              color: active
+                  ? Sym.amber.withValues(alpha: 0.05)
+                  : Colors.transparent,
               border: Border(
                 top: BorderSide(
                   color: active ? Sym.amber : Colors.transparent,
@@ -211,7 +227,13 @@ class _BottomNav extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 18, color: active ? Sym.amber : Sym.inkDim),
+                AnimatedScale(
+                  scale: active ? 1.08 : 1,
+                  duration: Sym.med,
+                  curve: Sym.ease,
+                  child: Icon(icon,
+                      size: 18, color: active ? Sym.amber : Sym.inkDim),
+                ),
                 const SizedBox(height: 3),
                 Text(label,
                     style: Sym.label(
@@ -240,8 +262,9 @@ class _BottomNav extends StatelessWidget {
 }
 
 /// Header navigation tab: mono label with an amber underline when active —
-/// same instrument-panel language as the rest of the chrome.
-class _HeaderTab extends StatelessWidget {
+/// same instrument-panel language as the rest of the chrome. The underline
+/// and label color ease in, and the label brightens on hover.
+class _HeaderTab extends StatefulWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
@@ -250,23 +273,38 @@ class _HeaderTab extends StatelessWidget {
       {required this.label, required this.active, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: onTap,
-        child: Container(
+  State<_HeaderTab> createState() => _HeaderTabState();
+}
+
+class _HeaderTabState extends State<_HeaderTab> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.active ? Sym.amber : (_hover ? Sym.ink : Sym.inkDim);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: Sym.fast,
+          curve: Sym.ease,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: active ? Sym.amber : Colors.transparent,
+                color: widget.active
+                    ? Sym.amber
+                    : (_hover ? Sym.hairline : Colors.transparent),
                 width: 2,
               ),
             ),
           ),
-          child: Text(
-            label,
-            style: Sym.label(color: active ? Sym.amber : Sym.inkDim, size: 9.5),
-          ),
+          child: Text(widget.label, style: Sym.label(color: color, size: 9.5)),
         ),
-      );
+      ),
+    );
+  }
 }

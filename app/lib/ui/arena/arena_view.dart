@@ -69,12 +69,14 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
         ? Row(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
             VerticalDivider(width: 1, color: Sym.hairline),
-            Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
+            Expanded(
+                child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
           ])
         : Column(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
             Divider(height: 1, color: Sym.hairline),
-            Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
+            Expanded(
+                child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
           ]);
 
     return Column(
@@ -104,7 +106,8 @@ class _ArenaToolbar extends ConsumerWidget {
   final Tally? tally;
   final String? pairing;
 
-  const _ArenaToolbar({required this.arena, required this.tally, required this.pairing});
+  const _ArenaToolbar(
+      {required this.arena, required this.tally, required this.pairing});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -156,27 +159,51 @@ class _ArenaToolbar extends ConsumerWidget {
   }
 }
 
-class _ModeChip extends StatelessWidget {
+class _ModeChip extends StatefulWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
 
-  const _ModeChip({required this.label, required this.active, required this.onTap});
+  const _ModeChip(
+      {required this.label, required this.active, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: active ? Sym.surfaceRaised : Colors.transparent,
-            border: Border.all(color: active ? Sym.amberDim : Sym.hairline),
+  State<_ModeChip> createState() => _ModeChipState();
+}
+
+class _ModeChipState extends State<_ModeChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: Sym.fast,
+            curve: Sym.ease,
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              color: widget.active
+                  ? Sym.surfaceRaised
+                  : (_hover
+                      ? Sym.surfaceRaised.withValues(alpha: 0.5)
+                      : Colors.transparent),
+              border: Border.all(
+                  color: widget.active
+                      ? Sym.amberDim
+                      : (_hover ? Sym.inkFaint : Sym.hairline)),
+            ),
+            child: Text(widget.label,
+                style: Sym.label(
+                    color: widget.active
+                        ? Sym.amber
+                        : (_hover ? Sym.ink : Sym.inkDim),
+                    size: 8.5)),
           ),
-          child: Text(label,
-              style: Sym.label(
-                  color: active ? Sym.amber : Sym.inkDim, size: 8.5)),
         ),
       );
 }
@@ -222,28 +249,47 @@ class _VoteBar extends ConsumerWidget {
   }
 }
 
-class _VoteButton extends StatelessWidget {
+class _VoteButton extends StatefulWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
 
-  const _VoteButton({required this.label, required this.color, required this.onTap});
+  const _VoteButton(
+      {required this.label, required this.color, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withValues(alpha: 0.55)),
-          ),
-          child: Text(
-            label,
-            style: Sym.mono(size: 10, color: color, weight: FontWeight.w600),
-            overflow: TextOverflow.ellipsis,
+  State<_VoteButton> createState() => _VoteButtonState();
+}
+
+class _VoteButtonState extends State<_VoteButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: Sym.fast,
+            curve: Sym.ease,
+            constraints: const BoxConstraints(maxWidth: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5),
+              color: _hover
+                  ? widget.color.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              border: Border.all(
+                  color: widget.color.withValues(alpha: _hover ? 0.9 : 0.55)),
+            ),
+            child: Text(
+              widget.label,
+              style: Sym.mono(
+                  size: 10, color: widget.color, weight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       );
@@ -305,8 +351,7 @@ class _DuelComposer extends StatelessWidget {
                 ? IconButton(
                     onPressed: onStop,
                     tooltip: 'Stop both',
-                    icon: Icon(Icons.stop_circle_outlined,
-                        color: Sym.danger),
+                    icon: Icon(Icons.stop_circle_outlined, color: Sym.danger),
                   )
                 : IconButton(
                     onPressed: enabled ? onSend : null,

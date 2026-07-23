@@ -25,8 +25,9 @@ class ParameterLab extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
         color: Sym.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Sym.hairline),
+        boxShadow: Sym.lift(strength: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,14 +192,14 @@ class _LabSlider extends StatelessWidget {
           const SizedBox(width: 10),
           SizedBox(
             width: 42,
-            child: Text(
-              display,
-              textAlign: TextAlign.right,
+            child: AnimatedDefaultTextStyle(
+              duration: Sym.fast,
               style: Sym.mono(
                 size: 12,
                 color: isDefault ? Sym.inkDim : Sym.amber,
                 weight: FontWeight.w600,
               ),
+              child: Text(display, textAlign: TextAlign.right),
             ),
           ),
         ],

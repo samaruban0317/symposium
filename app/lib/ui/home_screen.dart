@@ -281,9 +281,7 @@ class _HeaderTabState extends State<_HeaderTab> {
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.active
-        ? Sym.amber
-        : (_hover ? Sym.ink : Sym.inkDim);
+    final color = widget.active ? Sym.amber : (_hover ? Sym.ink : Sym.inkDim);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),

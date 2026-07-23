@@ -37,7 +37,8 @@ class _CodeBlock extends StatefulWidget {
   final String code;
   final bool closed; // false while the closing ``` hasn't streamed in yet
 
-  const _CodeBlock({required this.language, required this.code, required this.closed});
+  const _CodeBlock(
+      {required this.language, required this.code, required this.closed});
 
   @override
   State<_CodeBlock> createState() => _CodeBlockState();
@@ -76,7 +77,9 @@ class _CodeBlockState extends State<_CodeBlock> {
               child: Row(
                 children: [
                   Text(
-                    widget.language.isEmpty ? 'CODE' : widget.language.toUpperCase(),
+                    widget.language.isEmpty
+                        ? 'CODE'
+                        : widget.language.toUpperCase(),
                     style: Sym.label(size: 9, color: Sym.inkFaint),
                   ),
                   if (!widget.closed) ...[
@@ -108,7 +111,8 @@ class _CodeBlockState extends State<_CodeBlock> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.all(12),
-              child: Text(widget.code, style: Sym.mono(size: 12.5, color: Sym.ink)),
+              child: Text(widget.code,
+                  style: Sym.mono(size: 12.5, color: Sym.ink)),
             ),
           ],
         ),

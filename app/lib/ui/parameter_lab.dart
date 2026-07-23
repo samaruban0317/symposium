@@ -115,7 +115,8 @@ class ParamChips extends ConsumerWidget {
     final labels = <String>[
       if (params.temperature != ChatParams.defaultTemperature)
         'TEMP ${params.temperature.toStringAsFixed(2)}',
-      if (params.topP != ChatParams.defaultTopP) 'TOP-P ${params.topP.toStringAsFixed(2)}',
+      if (params.topP != ChatParams.defaultTopP)
+        'TOP-P ${params.topP.toStringAsFixed(2)}',
       if (params.maxTokens != null) 'MAX ${params.maxTokens}',
       if (params.systemPrompt.trim().isNotEmpty) 'SYSTEM ●',
     ];
@@ -135,9 +136,11 @@ class ParamChips extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Sym.amberDim.withValues(alpha: 0.6)),
+                  border:
+                      Border.all(color: Sym.amberDim.withValues(alpha: 0.6)),
                 ),
-                child: Text(l, style: Sym.mono(size: 9.5, color: Sym.amber, spacing: 1)),
+                child: Text(l,
+                    style: Sym.mono(size: 9.5, color: Sym.amber, spacing: 1)),
               ),
             ),
         ],
@@ -186,7 +189,8 @@ class _LabSlider extends StatelessWidget {
                 overlayColor: const Color(0x22E0A458),
                 trackShape: const RectangularSliderTrackShape(),
               ),
-              child: Slider(value: value, min: min, max: max, onChanged: onChanged),
+              child: Slider(
+                  value: value, min: min, max: max, onChanged: onChanged),
             ),
           ),
           const SizedBox(width: 10),
@@ -244,7 +248,8 @@ class _MaxTokensFieldState extends State<_MaxTokensField> {
           isDense: true,
           hintText: '∞',
           hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
             borderSide: BorderSide(color: Sym.hairline),
@@ -273,7 +278,8 @@ class _SystemPromptFieldState extends State<_SystemPromptField> {
   @override
   void didUpdateWidget(_SystemPromptField old) {
     super.didUpdateWidget(old);
-    if (widget.value != old.value && _c.text != widget.value) _c.text = widget.value;
+    if (widget.value != old.value && _c.text != widget.value)
+      _c.text = widget.value;
   }
 
   @override
@@ -290,7 +296,8 @@ class _SystemPromptFieldState extends State<_SystemPromptField> {
         style: Sym.body(size: 13.5),
         decoration: InputDecoration(
           isDense: true,
-          hintText: 'Who should the model be? Applied to every request, shown to no one.',
+          hintText:
+              'Who should the model be? Applied to every request, shown to no one.',
           hintStyle: Sym.body(size: 13.5, color: Sym.inkFaint),
           contentPadding: const EdgeInsets.all(10),
           enabledBorder: OutlineInputBorder(

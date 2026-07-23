@@ -126,23 +126,51 @@ abstract class Sym {
         ),
       ];
 
-  static TextStyle display({double size = 24, Color? color, FontWeight weight = FontWeight.w500}) =>
-      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color ?? _p.ink, fontWeight: weight, height: 1.25);
+  static TextStyle display(
+          {double size = 24,
+          Color? color,
+          FontWeight weight = FontWeight.w500}) =>
+      TextStyle(
+          fontFamily: 'Spectral',
+          fontSize: size,
+          color: color ?? _p.ink,
+          fontWeight: weight,
+          height: 1.25);
 
-  static TextStyle body({double size = 15, Color? color, double height = 1.55}) =>
-      TextStyle(fontFamily: 'Spectral', fontSize: size, color: color ?? _p.ink, height: height);
+  static TextStyle body(
+          {double size = 15, Color? color, double height = 1.55}) =>
+      TextStyle(
+          fontFamily: 'Spectral',
+          fontSize: size,
+          color: color ?? _p.ink,
+          height: height);
 
-  static TextStyle mono({double size = 12, Color? color, FontWeight weight = FontWeight.w400, double spacing = 0}) =>
-      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color ?? _p.inkDim, fontWeight: weight, letterSpacing: spacing);
+  static TextStyle mono(
+          {double size = 12,
+          Color? color,
+          FontWeight weight = FontWeight.w400,
+          double spacing = 0}) =>
+      TextStyle(
+          fontFamily: 'IBMPlexMono',
+          fontSize: size,
+          color: color ?? _p.inkDim,
+          fontWeight: weight,
+          letterSpacing: spacing);
 
   /// Small-caps-style instrument label: `MODEL`, `TOK/S`, `CONTEXT`.
-  static TextStyle label({Color? color, double size = 10}) =>
-      TextStyle(fontFamily: 'IBMPlexMono', fontSize: size, color: color ?? _p.inkDim, fontWeight: FontWeight.w600, letterSpacing: 2.0);
+  static TextStyle label({Color? color, double size = 10}) => TextStyle(
+      fontFamily: 'IBMPlexMono',
+      fontSize: size,
+      color: color ?? _p.inkDim,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 2.0);
 
   static ThemeData theme() => ThemeData(
         brightness: isDark ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: bg,
-        colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+        colorScheme:
+            (isDark ? const ColorScheme.dark() : const ColorScheme.light())
+                .copyWith(
           primary: amber,
           secondary: teal,
           surface: surface,

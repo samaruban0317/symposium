@@ -132,7 +132,11 @@ class _Dot extends StatelessWidget {
         shape: BoxShape.circle,
         color: Color.lerp(Sym.tealDim, Sym.teal, glow),
         boxShadow: glow > 0.6
-            ? [BoxShadow(color: Sym.teal.withValues(alpha: 0.5 * glow), blurRadius: 5)]
+            ? [
+                BoxShadow(
+                    color: Sym.teal.withValues(alpha: 0.5 * glow),
+                    blurRadius: 5)
+              ]
             : null,
       ),
     );
@@ -222,7 +226,9 @@ class Readout extends StatelessWidget {
           const SizedBox(height: 2),
           Text(value,
               style: Sym.mono(
-                  size: 14, color: valueColor ?? Sym.ink, weight: FontWeight.w600)),
+                  size: 14,
+                  color: valueColor ?? Sym.ink,
+                  weight: FontWeight.w600)),
         ],
       );
 }

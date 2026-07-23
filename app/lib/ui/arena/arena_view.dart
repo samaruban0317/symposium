@@ -69,12 +69,14 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
         ? Row(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
             VerticalDivider(width: 1, color: Sym.hairline),
-            Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
+            Expanded(
+                child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
           ])
         : Column(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
             Divider(height: 1, color: Sym.hairline),
-            Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
+            Expanded(
+                child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
           ]);
 
     return Column(
@@ -104,7 +106,8 @@ class _ArenaToolbar extends ConsumerWidget {
   final Tally? tally;
   final String? pairing;
 
-  const _ArenaToolbar({required this.arena, required this.tally, required this.pairing});
+  const _ArenaToolbar(
+      {required this.arena, required this.tally, required this.pairing});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -161,7 +164,8 @@ class _ModeChip extends StatefulWidget {
   final bool active;
   final VoidCallback onTap;
 
-  const _ModeChip({required this.label, required this.active, required this.onTap});
+  const _ModeChip(
+      {required this.label, required this.active, required this.onTap});
 
   @override
   State<_ModeChip> createState() => _ModeChipState();
@@ -250,7 +254,8 @@ class _VoteButton extends StatefulWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _VoteButton({required this.label, required this.color, required this.onTap});
+  const _VoteButton(
+      {required this.label, required this.color, required this.onTap});
 
   @override
   State<_VoteButton> createState() => _VoteButtonState();
@@ -277,13 +282,12 @@ class _VoteButtonState extends State<_VoteButton> {
                   ? widget.color.withValues(alpha: 0.12)
                   : Colors.transparent,
               border: Border.all(
-                  color: widget.color
-                      .withValues(alpha: _hover ? 0.9 : 0.55)),
+                  color: widget.color.withValues(alpha: _hover ? 0.9 : 0.55)),
             ),
             child: Text(
               widget.label,
-              style:
-                  Sym.mono(size: 10, color: widget.color, weight: FontWeight.w600),
+              style: Sym.mono(
+                  size: 10, color: widget.color, weight: FontWeight.w600),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -347,8 +351,7 @@ class _DuelComposer extends StatelessWidget {
                 ? IconButton(
                     onPressed: onStop,
                     tooltip: 'Stop both',
-                    icon: Icon(Icons.stop_circle_outlined,
-                        color: Sym.danger),
+                    icon: Icon(Icons.stop_circle_outlined, color: Sym.danger),
                   )
                 : IconButton(
                     onPressed: enabled ? onSend : null,

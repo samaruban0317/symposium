@@ -57,7 +57,8 @@ class _PullDialogState extends ConsumerState<PullDialog> {
       backgroundColor: Sym.surfaceRaised,
       title: Row(
         children: [
-          Expanded(child: Text('Install a model', style: Sym.display(size: 20))),
+          Expanded(
+              child: Text('Install a model', style: Sym.display(size: 20))),
           if (catalog.valueOrNull != null)
             Text(
               catalog.valueOrNull!.live
@@ -202,14 +203,13 @@ class _CapChipState extends State<_CapChip> {
             borderRadius: BorderRadius.circular(999),
             color: on ? Sym.amber.withValues(alpha: 0.1) : Colors.transparent,
             border: Border.all(
-                color: on
-                    ? Sym.amber
-                    : (_hover ? Sym.inkFaint : Sym.hairline)),
+                color: on ? Sym.amber : (_hover ? Sym.inkFaint : Sym.hairline)),
           ),
           child: Text(
             widget.label,
             style: Sym.label(
-                size: 8, color: on ? Sym.amber : (_hover ? Sym.ink : Sym.inkDim)),
+                size: 8,
+                color: on ? Sym.amber : (_hover ? Sym.ink : Sym.inkDim)),
           ),
         ),
       ),
@@ -256,7 +256,8 @@ class _CatalogTileState extends State<_CatalogTile> {
     if (reqs == null) return Sym.teal;
     if (deviceVramGb != null && reqs.ramGB <= deviceVramGb!) return Sym.teal;
     if (deviceRamGb == null) return deviceVramGb == null ? Sym.teal : Sym.amber;
-    if (deviceVramGb == null && reqs.ramGB <= deviceRamGb! * 0.75) return Sym.teal;
+    if (deviceVramGb == null && reqs.ramGB <= deviceRamGb! * 0.75)
+      return Sym.teal;
     if (reqs.ramGB <= deviceRamGb!) return Sym.amber;
     return Sym.danger;
   }
@@ -306,7 +307,8 @@ class _CatalogTileState extends State<_CatalogTile> {
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         child: Material(
-          color: _hover ? Sym.surface.withValues(alpha: 0.6) : Colors.transparent,
+          color:
+              _hover ? Sym.surface.withValues(alpha: 0.6) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           child: InkWell(
             borderRadius: BorderRadius.circular(6),
@@ -314,59 +316,62 @@ class _CatalogTileState extends State<_CatalogTile> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(entry.name,
-                          style: Sym.mono(
-                              size: 12.5, color: Sym.amber, weight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    for (final cap in entry.capabilities) ...[
-                      const SizedBox(width: 5),
-                      Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(3),
-                          border: Border.all(
-                              color: Sym.tealDim.withValues(alpha: 0.6)),
-                        ),
-                        child: Text(cap.toUpperCase(),
-                            style: Sym.label(size: 7, color: Sym.tealDim)),
-                      ),
-                    ],
-                    const Spacer(),
-                    if (entry.pulls != null)
-                      Text('${entry.pulls} pulls',
-                          style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
-                    const SizedBox(width: 6),
-                    Icon(Icons.download_outlined, size: 14, color: Sym.inkFaint),
-                  ],
-                ),
-                if (entry.description.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(entry.description,
-                      style: Sym.mono(size: 10.5, color: Sym.inkDim),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
-                if (entry.sizes.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 4,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      for (final s in entry.sizes)
-                        _sizeChip(s, ModelReqs.forSize(s)),
+                      Flexible(
+                        child: Text(entry.name,
+                            style: Sym.mono(
+                                size: 12.5,
+                                color: Sym.amber,
+                                weight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      for (final cap in entry.capabilities) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                                color: Sym.tealDim.withValues(alpha: 0.6)),
+                          ),
+                          child: Text(cap.toUpperCase(),
+                              style: Sym.label(size: 7, color: Sym.tealDim)),
+                        ),
+                      ],
+                      const Spacer(),
+                      if (entry.pulls != null)
+                        Text('${entry.pulls} pulls',
+                            style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+                      const SizedBox(width: 6),
+                      Icon(Icons.download_outlined,
+                          size: 14, color: Sym.inkFaint),
                     ],
                   ),
+                  if (entry.description.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(entry.description,
+                        style: Sym.mono(size: 10.5, color: Sym.inkDim),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                  if (entry.sizes.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: [
+                        for (final s in entry.sizes)
+                          _sizeChip(s, ModelReqs.forSize(s)),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           ),
         ),
       );

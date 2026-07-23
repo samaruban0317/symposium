@@ -74,8 +74,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
                   children: [
                     NotificationListener<ScrollNotification>(
                       onNotification: (n) {
-                        final near = n.metrics.pixels >=
-                            n.metrics.maxScrollExtent - 120;
+                        final near =
+                            n.metrics.pixels >= n.metrics.maxScrollExtent - 120;
                         if (near != _nearBottom) {
                           setState(() => _nearBottom = near);
                         }
@@ -131,8 +131,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                 decoration: BoxDecoration(
                                   color: Sym.surfaceRaised,
                                   shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Sym.hairline),
+                                  border: Border.all(color: Sym.hairline),
                                   boxShadow: Sym.lift(strength: 0.8),
                                 ),
                                 child: Icon(Icons.arrow_downward_rounded,
@@ -161,7 +160,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(chat.error!,
-                      style: Sym.mono(size: 11, color: Sym.danger), maxLines: 3),
+                      style: Sym.mono(size: 11, color: Sym.danger),
+                      maxLines: 3),
                 ),
               ],
             ),
@@ -194,7 +194,10 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({this.model, required this.onSuggest});
 
   static const _starters = [
-    ('Explain something', 'Explain how a neural network learns, like I am twelve.'),
+    (
+      'Explain something',
+      'Explain how a neural network learns, like I am twelve.'
+    ),
     ('Get writing help', 'Rewrite this to sound clearer and more confident: '),
     ('Reason it out', 'What are the strongest arguments for and against '),
     ('Code with me', 'Write a small Python script that '),
@@ -271,19 +274,17 @@ class _StarterChipState extends State<_StarterChip> {
           child: AnimatedContainer(
             duration: Sym.fast,
             curve: Sym.ease,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(999),
               color: _hover
                   ? Sym.amber.withValues(alpha: 0.08)
                   : Colors.transparent,
-              border: Border.all(
-                  color: _hover ? Sym.amberDim : Sym.hairline),
+              border: Border.all(color: _hover ? Sym.amberDim : Sym.hairline),
             ),
             child: Text(widget.label,
-                style: Sym.mono(
-                    size: 11, color: _hover ? Sym.amber : Sym.inkDim)),
+                style:
+                    Sym.mono(size: 11, color: _hover ? Sym.amber : Sym.inkDim)),
           ),
         ),
       );
@@ -390,7 +391,8 @@ class _MessageBlockState extends State<_MessageBlock> {
               ListTile(
                 dense: true,
                 leading: Icon(a.icon, size: 17, color: Sym.inkDim),
-                title: Text(a.label, style: Sym.mono(size: 12.5, color: Sym.ink)),
+                title:
+                    Text(a.label, style: Sym.mono(size: 12.5, color: Sym.ink)),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   a.run();
@@ -436,8 +438,11 @@ class _MessageBlockState extends State<_MessageBlock> {
               Row(
                 children: [
                   Text(
-                    _isUser ? 'YOU' : (widget.msg.modelName ?? 'MODEL').toUpperCase(),
-                    style: Sym.label(color: accent.withValues(alpha: 0.8), size: 9.5),
+                    _isUser
+                        ? 'YOU'
+                        : (widget.msg.modelName ?? 'MODEL').toUpperCase(),
+                    style: Sym.label(
+                        color: accent.withValues(alpha: 0.8), size: 9.5),
                   ),
                   const Spacer(),
                   AnimatedOpacity(
@@ -447,7 +452,8 @@ class _MessageBlockState extends State<_MessageBlock> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         for (final a in _actions)
-                          _ActionIcon(icon: a.icon, tooltip: a.label, onTap: a.run),
+                          _ActionIcon(
+                              icon: a.icon, tooltip: a.label, onTap: a.run),
                       ],
                     ),
                   ),
@@ -536,7 +542,8 @@ class _ActionIcon extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
-  const _ActionIcon({required this.icon, required this.tooltip, required this.onTap});
+  const _ActionIcon(
+      {required this.icon, required this.tooltip, required this.onTap});
 
   @override
   State<_ActionIcon> createState() => _ActionIconState();
@@ -628,12 +635,14 @@ class _InlineEditorState extends State<_InlineEditor> {
               const Spacer(),
               TextButton(
                 onPressed: widget.onCancel,
-                child: Text('cancel', style: Sym.mono(size: 11, color: Sym.inkDim)),
+                child: Text('cancel',
+                    style: Sym.mono(size: 11, color: Sym.inkDim)),
               ),
               const SizedBox(width: 4),
               TextButton(
                 onPressed: () => widget.onSubmit(_c.text),
-                child: Text('resend', style: Sym.mono(size: 11, color: Sym.amber)),
+                child:
+                    Text('resend', style: Sym.mono(size: 11, color: Sym.amber)),
               ),
             ],
           ),
@@ -794,9 +803,7 @@ class _ComposerState extends ConsumerState<_Composer> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: widget.enabled
-                                ? Sym.amber
-                                : Sym.surface,
+                            color: widget.enabled ? Sym.amber : Sym.surface,
                             borderRadius: BorderRadius.circular(9),
                             boxShadow: widget.enabled
                                 ? Sym.glow(Sym.amber, strength: 0.7)
@@ -804,9 +811,7 @@ class _ComposerState extends ConsumerState<_Composer> {
                           ),
                           child: Icon(Icons.arrow_upward_rounded,
                               size: 18,
-                              color: widget.enabled
-                                  ? Sym.bg
-                                  : Sym.inkFaint),
+                              color: widget.enabled ? Sym.bg : Sym.inkFaint),
                         ),
                       ),
               ),
@@ -891,7 +896,8 @@ class _PendingAttachmentsRow extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis),
                   ),
                   const SizedBox(width: 4),
-                  Text('${((pending.docText?.length ?? 0) / 1000).ceil()}k chars',
+                  Text(
+                      '${((pending.docText?.length ?? 0) / 1000).ceil()}k chars',
                       style: Sym.mono(size: 9, color: Sym.inkFaint)),
                   const SizedBox(width: 6),
                   InkWell(

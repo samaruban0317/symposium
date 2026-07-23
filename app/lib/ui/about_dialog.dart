@@ -33,52 +33,52 @@ class SymAboutDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: Sym.amberDim.withValues(alpha: 0.4)),
         ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Text('☙', style: Sym.display(size: 20, color: Sym.amberDim)),
-                const SizedBox(width: 10),
-                Text('Symposium',
-                    style: Sym.display(
-                        size: 22, weight: FontWeight.w600, color: Sym.ink)),
-                const Spacer(),
-                Text('v$kSymVersion',
-                    style: Sym.mono(size: 11, color: Sym.inkFaint)),
-              ]),
-              const SizedBox(height: 6),
-              Text('A VISIONARY SPARKS PRODUCT',
-                  style: Sym.label(color: Sym.teal)),
-              const SizedBox(height: 14),
-              Text(
-                'A gathering of minds — run local open-source models, share '
-                'them across your network, race them in the arena, and train '
-                'your own. Everything stays on your hardware.',
-                style: Sym.body(size: 13.5, color: Sym.inkDim),
-              ),
-              const SizedBox(height: 18),
-              Wrap(spacing: 8, runSpacing: 8, children: const [
-                _LinkButton(label: 'VISIONARYSPARKS.IN', url: _siteUrl),
-                _LinkButton(label: 'SOURCE · GITHUB', url: _repoUrl),
-              ]),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('CLOSE', style: Sym.label(color: Sym.inkDim)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Text('☙', style: Sym.display(size: 20, color: Sym.amberDim)),
+                  const SizedBox(width: 10),
+                  Text('Symposium',
+                      style: Sym.display(
+                          size: 22, weight: FontWeight.w600, color: Sym.ink)),
+                  const Spacer(),
+                  Text('v$kSymVersion',
+                      style: Sym.mono(size: 11, color: Sym.inkFaint)),
+                ]),
+                const SizedBox(height: 6),
+                Text('A VISIONARY SPARKS PRODUCT',
+                    style: Sym.label(color: Sym.teal)),
+                const SizedBox(height: 14),
+                Text(
+                  'A gathering of minds — run local open-source models, share '
+                  'them across your network, race them in the arena, and train '
+                  'your own. Everything stays on your hardware.',
+                  style: Sym.body(size: 13.5, color: Sym.inkDim),
                 ),
-              ),
-            ],
+                const SizedBox(height: 18),
+                Wrap(spacing: 8, runSpacing: 8, children: const [
+                  _LinkButton(label: 'VISIONARYSPARKS.IN', url: _siteUrl),
+                  _LinkButton(label: 'SOURCE · GITHUB', url: _repoUrl),
+                ]),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('CLOSE', style: Sym.label(color: Sym.inkDim)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }

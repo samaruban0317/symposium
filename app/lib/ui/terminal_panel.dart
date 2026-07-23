@@ -57,7 +57,8 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
           : (_historyIndex! - 1).clamp(0, history.length - 1);
     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       if (_historyIndex == null) return KeyEventResult.ignored;
-      _historyIndex = _historyIndex! + 1 >= history.length ? null : _historyIndex! + 1;
+      _historyIndex =
+          _historyIndex! + 1 >= history.length ? null : _historyIndex! + 1;
     } else {
       return KeyEventResult.ignored;
     }
@@ -88,9 +89,9 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
             cursor: SystemMouseCursors.resizeUpDown,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onVerticalDragUpdate: (d) =>
-                  ref.read(terminalHeightProvider.notifier).state =
-                      (height - d.delta.dy).clamp(140.0, 560.0),
+              onVerticalDragUpdate: (d) => ref
+                  .read(terminalHeightProvider.notifier)
+                  .state = (height - d.delta.dy).clamp(140.0, 560.0),
               child: Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -286,7 +287,10 @@ class _HeaderIcon extends StatelessWidget {
   final VoidCallback onTap;
 
   const _HeaderIcon(
-      {required this.icon, required this.tooltip, this.color, required this.onTap});
+      {required this.icon,
+      required this.tooltip,
+      this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) => Tooltip(

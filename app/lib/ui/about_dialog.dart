@@ -18,12 +18,21 @@ class SymAboutDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Sym.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Sym.amberDim.withValues(alpha: 0.4)),
+    // A gentle scale-and-fade entrance so the card arrives rather than pops.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Sym.slow,
+      curve: Sym.ease,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0, 1),
+        child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
       ),
+      child: Dialog(
+        backgroundColor: Sym.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Sym.amberDim.withValues(alpha: 0.4)),
+        ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 380),
         child: Padding(
@@ -69,27 +78,45 @@ class SymAboutDialog extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
 
-class _LinkButton extends StatelessWidget {
+class _LinkButton extends StatefulWidget {
   const _LinkButton({required this.label, required this.url});
   final String label;
   final String url;
 
   @override
+  State<_LinkButton> createState() => _LinkButtonState();
+}
+
+class _LinkButtonState extends State<_LinkButton> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: () =>
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Sym.amber,
-        side: BorderSide(color: Sym.amberDim),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: () => launchUrl(Uri.parse(widget.url),
+            mode: LaunchMode.externalApplication),
+        child: AnimatedContainer(
+          duration: Sym.fast,
+          curve: Sym.ease,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color:
+                _hover ? Sym.amber.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: _hover ? Sym.amber : Sym.amberDim),
+          ),
+          child: Text(widget.label, style: Sym.label(color: Sym.amber)),
+        ),
       ),
-      child: Text(label, style: Sym.label(color: Sym.amber)),
     );
   }
 }

@@ -58,9 +58,10 @@ class _CodeBlockState extends State<_CodeBlock> {
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Sym.surface,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Sym.hairline),
         ),
         child: Column(
@@ -84,13 +85,21 @@ class _CodeBlockState extends State<_CodeBlock> {
                   ],
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Copy code',
+                    tooltip: _copied ? 'Copied' : 'Copy code',
                     onPressed: _copy,
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(
-                      _copied ? Icons.check : Icons.copy_all_outlined,
-                      size: 14,
-                      color: _copied ? Sym.teal : Sym.inkDim,
+                    icon: AnimatedSwitcher(
+                      duration: Sym.med,
+                      transitionBuilder: (child, anim) => ScaleTransition(
+                        scale: anim,
+                        child: FadeTransition(opacity: anim, child: child),
+                      ),
+                      child: Icon(
+                        _copied ? Icons.check_rounded : Icons.copy_all_outlined,
+                        key: ValueKey(_copied),
+                        size: 14,
+                        color: _copied ? Sym.teal : Sym.inkDim,
+                      ),
                     ),
                   ),
                 ],

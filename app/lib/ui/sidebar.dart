@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../engine/ollama_probe.dart';
 import '../models/conversation.dart';
 import '../models/source.dart';
+import '../net/host_limits.dart';
 import '../net/protocol.dart';
 import '../state/app_state.dart';
 import '../state/arena_state.dart';
@@ -31,6 +33,25 @@ final _ollamaHintProvider = FutureProvider<String>((ref) async {
   final status = await OllamaProbe.probe();
   return status.hint;
 });
+
+/// Live host-usage poll (~3s) for the admin readout. Only ticks while a server
+/// is running; auto-disposes when the Host Controls widget leaves the tree
+/// (i.e. hosting stops), so there is no timer running when nobody's watching.
+final _hostStatsProvider = StreamProvider.autoDispose<Map<String, dynamic>?>(
+  (ref) {
+    Map<String, dynamic>? read() =>
+        ref.read(hostControllerProvider.notifier).stats();
+    final controller = StreamController<Map<String, dynamic>?>();
+    controller.add(read());
+    final timer = Timer.periodic(
+        const Duration(seconds: 3), (_) => controller.add(read()));
+    ref.onDispose(() {
+      timer.cancel();
+      controller.close();
+    });
+    return controller.stream;
+  },
+);
 
 class Sidebar extends ConsumerWidget {
   const Sidebar({super.key});
@@ -979,6 +1000,8 @@ class _NetworkSection extends ConsumerWidget {
                 style: Sym.mono(size: 9, color: Sym.inkFaint),
               ),
             ],
+            const SizedBox(height: 10),
+            const _HostControls(),
           ] else if (host?.error != null) ...[
             const SizedBox(height: 4),
             Text(host!.error!,
@@ -1227,6 +1250,139 @@ class _NetworkSection extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The "router admin page" for a host: set the caps and watch live usage.
+/// Collapsible so it never dominates the panel; edits are pushed onto the
+/// running server immediately (no restart) via [HostController.updateLimits].
+class _HostControls extends ConsumerStatefulWidget {
+  const _HostControls();
+
+  @override
+  ConsumerState<_HostControls> createState() => _HostControlsState();
+}
+
+class _HostControlsState extends ConsumerState<_HostControls> {
+  var _open = false;
+
+  /// A labelled numeric field bound to one limits value. Reads the current
+  /// [HostLimits] each build and writes back the whole object via [copyWith]
+  /// so the running server updates live. `0 = unlimited` by contract.
+  Widget _numField(
+    String label,
+    int value,
+    HostLimits Function(HostLimits base, int v) apply,
+  ) {
+    final ctrl = TextEditingController(text: value.toString());
+    ctrl.selection =
+        TextSelection.collapsed(offset: ctrl.text.length);
+
+    void save(String raw) {
+      final v = int.tryParse(raw.trim());
+      if (v == null || v < 0) return;
+      final current = ref.read(hostLimitsProvider);
+      ref.read(hostControllerProvider.notifier).updateLimits(apply(current, v));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: Sym.mono(size: 10.5, color: Sym.inkDim)),
+          ),
+          SizedBox(
+            width: 56,
+            child: TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.right,
+              style: Sym.mono(size: 12, color: Sym.ink),
+              onSubmitted: save,
+              onEditingComplete: () => save(ctrl.text),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Sym.hairline)),
+                focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Sym.amberDim)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value,
+              style: Sym.mono(
+                  size: 14, color: Sym.teal, weight: FontWeight.w600)),
+          Text(label, style: Sym.mono(size: 8.5, color: Sym.inkFaint)),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final limits = ref.watch(hostLimitsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text('HOST CONTROLS',
+                      style: Sym.label(color: Sym.tealDim, size: 9)),
+                ),
+                Icon(_open ? Icons.expand_less : Icons.expand_more,
+                    size: 14, color: Sym.inkFaint),
+              ],
+            ),
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: 4),
+          _numField('Max connections', limits.maxConnections,
+              (b, v) => b.copyWith(maxConnections: v)),
+          _numField('Max users/day', limits.maxUsersPerDay,
+              (b, v) => b.copyWith(maxUsersPerDay: v)),
+          _numField('Daily request cap', limits.dailyTotalCap,
+              (b, v) => b.copyWith(dailyTotalCap: v)),
+          _numField('Guest req/hour', limits.guestPerHour,
+              (b, v) => b.copyWith(guestPerHour: v)),
+          _numField('Student req/day', limits.studentPerDay,
+              (b, v) => b.copyWith(studentPerDay: v)),
+          Text('0 = unlimited · press Enter to apply',
+              style: Sym.mono(size: 8.5, color: Sym.inkFaint)),
+          const SizedBox(height: 10),
+          Consumer(builder: (_, r, __) {
+            final stats = r.watch(_hostStatsProvider).valueOrNull;
+            final inFlight = stats?['in_flight'] ?? 0;
+            final today = stats?['today_total'] ?? 0;
+            final users = stats?['unique_users_today'] ?? 0;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _stat('in flight', '$inFlight'),
+                _stat('today', '$today'),
+                _stat('users', '$users'),
+              ],
+            );
+          }),
+        ],
+      ],
     );
   }
 }

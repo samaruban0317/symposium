@@ -1,0 +1,15 @@
+{
+  "_comment": "Example Symposium host limits file. Point SYMPOSIUM_LIMITS_FILE at a copy of this. Partial files are fine — any field you omit keeps its default. For every numeric cap, 0 = UNLIMITED. Admins are always unlimited. Individual SYMPOSIUM_* env vars override anything here. JSON has no real comments, hence this _comment field (which the loader ignores).",
+  "max_connections": 8,
+  "max_users_per_day": 25,
+  "daily_total_cap": 1000,
+  "guest_per_hour": 15,
+  "student_per_day": 150,
+  "guest_models": [
+    "llama3.2:1b",
+    "gemma3:1b",
+    "gemma3:4b",
+    "qwen2.5:0.5b",
+    "qwen2.5:1.5b"
+  ]
+}

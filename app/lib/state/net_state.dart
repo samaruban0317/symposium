@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../engine/ollama_engine.dart';
 import '../net/discovery.dart';
+import '../net/host_limits.dart';
 import '../net/host_server.dart';
 import '../net/protocol.dart';
 
@@ -61,7 +62,11 @@ class HostController extends StateNotifier<HostState?> {
         models = (await OllamaEngine(upstream).listModels()).map((m) => m.name).toList();
       } catch (_) {}
 
-      final server = HostServer(upstream: upstream, pairingCode: code);
+      final server = HostServer(
+        upstream: upstream,
+        pairingCode: code,
+        limits: ref.read(hostLimitsProvider),
+      );
       await server.start(kProxyPort);
       final responder = DiscoveryResponder(
         info: () => {
@@ -94,7 +99,24 @@ class HostController extends StateNotifier<HostState?> {
     _responder = null;
     state = null;
   }
+
+  /// Live-apply new admin limits: persist them in the provider (so the next
+  /// `enable()` also picks them up) and, if a server is already running, push
+  /// them onto its mutable `limits` field — no restart, no dropped connection.
+  void updateLimits(HostLimits limits) {
+    ref.read(hostLimitsProvider.notifier).state = limits;
+    _server?.limits = limits;
+  }
+
+  /// Live usage snapshot for the admin UI, or null when not hosting.
+  Map<String, dynamic>? stats() => _server?.statsSnapshot();
 }
+
+/// Admin-set host policy (the "router admin page"). Seeded from defaults;
+/// [HostController.enable] reads it when building the in-process [HostServer],
+/// and [HostController.updateLimits] writes it back on live edits.
+final hostLimitsProvider =
+    StateProvider<HostLimits>((_) => HostLimits.defaults);
 
 final hostControllerProvider =
     StateNotifierProvider<HostController, HostState?>((ref) => HostController(ref));

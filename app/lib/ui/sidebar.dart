@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../engine/ollama_probe.dart';
 import '../models/conversation.dart';
 import '../models/source.dart';
 import '../net/protocol.dart';
@@ -17,6 +18,19 @@ import '../theme.dart';
 import 'about_dialog.dart';
 import 'pull_dialog.dart';
 import 'widgets.dart';
+
+/// OS-aware "how do I start Ollama?" guidance, resolved only when the local
+/// engine is down. Empty for remote/cloud endpoints, where systemctl/brew/
+/// installer advice would just mislead. Gives Linux (Arch) and macOS users the
+/// platform-correct steps instead of a blank offline state.
+final _ollamaHintProvider = FutureProvider<String>((ref) async {
+  final endpoint = ref.watch(endpointProvider);
+  final isLoopback =
+      endpoint.contains('127.0.0.1') || endpoint.contains('localhost');
+  if (!isLoopback) return '';
+  final status = await OllamaProbe.probe();
+  return status.hint;
+});
 
 class Sidebar extends ConsumerWidget {
   const Sidebar({super.key});
@@ -102,6 +116,22 @@ class Sidebar extends ConsumerWidget {
                           : 'No engine at this address.\nIs Ollama running?',
                       style: Sym.mono(size: 11, color: Sym.inkDim),
                     ),
+                    // OS-aware next steps for a down LOCAL engine — Linux gets
+                    // systemctl/pacman, macOS gets brew, Windows the installer.
+                    if (!online)
+                      Consumer(builder: (_, r, __) {
+                        final hint = r.watch(_ollamaHintProvider).valueOrNull;
+                        if (hint == null || hint.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text(
+                            hint,
+                            style: Sym.mono(size: 10, color: Sym.inkFaint),
+                          ),
+                        );
+                      }),
                     // One click instead of "open a terminal and run ollama
                     // serve" — only offered where that could actually work.
                     if (!online &&

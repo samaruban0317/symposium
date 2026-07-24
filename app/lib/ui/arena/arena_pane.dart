@@ -76,11 +76,12 @@ class _ArenaPaneState extends ConsumerState<ArenaPane> {
         ),
         if (pane.error != null)
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              border: Border.all(color: Sym.danger),
-              borderRadius: BorderRadius.circular(6),
+              color: Sym.danger.withValues(alpha: 0.08),
+              border: Border.all(color: Sym.danger.withValues(alpha: 0.6)),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
@@ -116,11 +117,26 @@ class _PaneHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Left podium = amber (the human accent), right = teal (the machine).
+    // A whisper-thin wash + a top keyline in that accent makes the two minds
+    // read as distinct at a glance without loud color.
+    final accent = side == ArenaSide.left ? Sym.amber : Sym.teal;
     return Container(
-      height: 46,
+      height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Sym.hairline)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            accent.withValues(alpha: 0.05),
+            Sym.surface.withValues(alpha: 0.0),
+          ],
+        ),
+        border: Border(
+          top: BorderSide(color: accent.withValues(alpha: 0.35), width: 2),
+          bottom: BorderSide(color: Sym.hairline),
+        ),
       ),
       child: Row(
         children: [
@@ -151,10 +167,11 @@ class _PaneHeader extends ConsumerWidget {
               borderRadius: BorderRadius.circular(4),
               onTap: () => showPaneModelPicker(context, side),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
+                  color: Sym.surfaceRaised,
                   border: Border.all(color: Sym.hairline),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -166,11 +183,12 @@ class _PaneHeader extends ConsumerWidget {
                             : (pane.model ?? 'no model'),
                         style: Sym.mono(
                             size: 10.5,
-                            color: pane.model != null ? Sym.teal : Sym.inkFaint),
+                            color: pane.model != null ? Sym.teal : Sym.inkFaint,
+                            weight: FontWeight.w500),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 4),
                     Icon(Icons.unfold_more, size: 11, color: Sym.inkFaint),
                   ],
                 ),
@@ -179,7 +197,16 @@ class _PaneHeader extends ConsumerWidget {
           ),
           const Spacer(),
           if (isFirst) ...[
-            Text('FIRST', style: Sym.label(color: Sym.teal, size: 8.5)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: Sym.teal.withValues(alpha: 0.12),
+                border:
+                    Border.all(color: Sym.teal.withValues(alpha: 0.4)),
+              ),
+              child: Text('FIRST', style: Sym.label(color: Sym.teal, size: 8)),
+            ),
             const SizedBox(width: 8),
           ],
           if (pane.tokPerSec > 0)
@@ -214,6 +241,7 @@ class _PaneEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = side == ArenaSide.left ? Sym.amber : Sym.teal;
     final podium = side == ArenaSide.left ? 'left podium' : 'right podium';
     final hint = !pane.online
         ? 'tap the source name to connect an engine'
@@ -221,22 +249,24 @@ class _PaneEmptyState extends StatelessWidget {
             ? 'no model here yet — install one from the sidebar'
             : 'speaking with  ${pane.model}';
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('☙', style: Sym.display(size: 24, color: Sym.amberDim)),
-          const SizedBox(height: 10),
-          Text(podium, style: Sym.display(size: 19, weight: FontWeight.w400)),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('☙',
+                style: Sym.display(
+                    size: 26, color: accent.withValues(alpha: 0.65))),
+            const SizedBox(height: 12),
+            Text(podium, style: Sym.display(size: 19, weight: FontWeight.w400)),
+            const SizedBox(height: 8),
+            Text(
               hint,
               textAlign: TextAlign.center,
               style: Sym.mono(size: 10.5, color: Sym.inkDim, spacing: 0.5),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -310,15 +340,22 @@ class _PaneComposer extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(10, 6, 10, 10),
       decoration: BoxDecoration(
         color: Sym.surfaceRaised,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Sym.hairline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 0, 4),
+              padding: const EdgeInsets.fromLTRB(12, 6, 0, 6),
               child: TextField(
                 controller: input,
                 enabled: enabled && !streaming,

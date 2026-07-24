@@ -187,52 +187,100 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('☙', style: Sym.display(size: 34, color: Sym.amberDim)),
-              const SizedBox(height: 14),
-              Text('The floor is yours.',
-                  textAlign: TextAlign.center,
-                  style: Sym.display(size: 30, weight: FontWeight.w400)),
-              const SizedBox(height: 10),
-              Text(
-                model == null
-                    ? 'connect an engine and choose a model to begin'
-                    : 'speaking with  $model',
-                style: Sym.mono(size: 11.5, color: Sym.inkDim, spacing: 0.5),
-              ),
-              if (model != null) ...[
-                const SizedBox(height: 26),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final (label, prompt) in _starters)
-                      InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: () => onSuggest(prompt),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Sym.hairline),
-                          ),
-                          child: Text(label,
-                              style: Sym.mono(size: 11, color: Sym.inkDim)),
-                        ),
-                      ),
-                  ],
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic,
+          builder: (context, t, child) => Opacity(
+            opacity: t,
+            child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Emblem sits in a soft amber halo — the one glow of the view.
+                Container(
+                  width: 72,
+                  height: 72,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [
+                      Sym.amber.withValues(alpha: 0.14),
+                      Sym.amber.withValues(alpha: 0.0),
+                    ]),
+                  ),
+                  child: Text('☙', style: Sym.display(size: 34, color: Sym.amber)),
                 ),
-                const SizedBox(height: 8),
-                Text('or attach an image or document with the paperclip',
-                    style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+                const SizedBox(height: 18),
+                Text('The floor is yours.',
+                    textAlign: TextAlign.center,
+                    style: Sym.display(size: 32, weight: FontWeight.w400)),
+                const SizedBox(height: 12),
+                Text(
+                  model == null
+                      ? 'connect an engine and choose a model to begin'
+                      : 'speaking with  $model',
+                  style: Sym.mono(size: 11.5, color: Sym.inkDim, spacing: 0.5),
+                ),
+                if (model != null) ...[
+                  const SizedBox(height: 30),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (final (label, prompt) in _starters)
+                        _StarterChip(label: label, onTap: () => onSuggest(prompt)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text('or attach an image or document with the paperclip',
+                      style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
+                ],
               ],
-            ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// A suggestion pill in the empty state. Warms toward amber on hover.
+class _StarterChip extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _StarterChip({required this.label, required this.onTap});
+
+  @override
+  State<_StarterChip> createState() => _StarterChipState();
+}
+
+class _StarterChipState extends State<_StarterChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            decoration: BoxDecoration(
+              color: _hover ? Sym.amber.withValues(alpha: 0.07) : Colors.transparent,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: _hover ? Sym.amber.withValues(alpha: 0.5) : Sym.hairline,
+              ),
+            ),
+            child: Text(widget.label,
+                style: Sym.mono(
+                    size: 11, color: _hover ? Sym.amber : Sym.inkDim)),
           ),
         ),
       );
@@ -318,27 +366,57 @@ class _MessageBlockState extends State<_MessageBlock> {
   Widget build(BuildContext context) {
     final accent = _isUser ? Sym.amber : Sym.teal;
 
-    return MouseRegion(
+    // The user's turn sits in a soft raised card; the assistant flows open
+    // against an accent rail — a calm, clear distinction between the voices.
+    final bodyPadding = _isUser
+        ? const EdgeInsets.fromLTRB(16, 12, 16, 14)
+        : const EdgeInsets.only(left: 16, top: 2);
+    final decoration = _isUser
+        ? BoxDecoration(
+            color: Sym.surfaceRaised,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Sym.hairline),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            border: Border(
+              left: BorderSide(color: accent.withValues(alpha: 0.5), width: 2),
+            ),
+          );
+
+    final block = MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onLongPress: widget.editing ? null : _showActionSheet,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 780),
-          margin: const EdgeInsets.only(bottom: 22, left: 16, right: 16),
-          padding: const EdgeInsets.only(left: 14),
-          decoration: BoxDecoration(
-            border:
-                Border(left: BorderSide(color: accent.withValues(alpha: 0.55), width: 2)),
-          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          padding: bodyPadding,
+          decoration: decoration,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
+                  Container(
+                    width: 5,
+                    height: 5,
+                    margin: const EdgeInsets.only(right: 7),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.85),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                   Text(
                     _isUser ? 'YOU' : (widget.msg.modelName ?? 'MODEL').toUpperCase(),
-                    style: Sym.label(color: accent.withValues(alpha: 0.8), size: 9.5),
+                    style: Sym.label(color: accent.withValues(alpha: 0.85), size: 9.5),
                   ),
                   const Spacer(),
                   AnimatedOpacity(
@@ -354,7 +432,7 @@ class _MessageBlockState extends State<_MessageBlock> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               if (widget.editing)
                 _InlineEditor(
                   initial: widget.msg.content,
@@ -422,6 +500,20 @@ class _MessageBlockState extends State<_MessageBlock> {
           ),
         ),
       ),
+    );
+
+    // Each turn drifts up and fades in once, keeping the transcript alive
+    // without re-animating on every streamed rebuild.
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(widget.index),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(0, 8 * (1 - t)), child: child),
+      ),
+      child: block,
     );
   }
 }
@@ -567,17 +659,29 @@ class _ComposerState extends ConsumerState<_Composer> {
   Widget build(BuildContext context) {
     final pending = ref.watch(attachmentsProvider);
 
+    final focused = _focus.hasFocus;
+
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       constraints: const BoxConstraints(maxWidth: 780),
       decoration: BoxDecoration(
         color: Sym.surfaceRaised,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: _focus.hasFocus
-                ? Sym.amberDim
-                : Sym.hairline),
+          color: focused ? Sym.amber.withValues(alpha: 0.55) : Sym.hairline,
+          width: focused ? 1.4 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: focused
+                ? Sym.amber.withValues(alpha: 0.10)
+                : Colors.black.withValues(alpha: 0.14),
+            blurRadius: focused ? 16 : 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -651,7 +755,7 @@ class _ComposerState extends ConsumerState<_Composer> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.fromLTRB(2, 6, 8, 6),
                 child: widget.streaming
                     ? IconButton(
                         onPressed: widget.onStop,
@@ -659,11 +763,26 @@ class _ComposerState extends ConsumerState<_Composer> {
                         icon:
                             Icon(Icons.stop_circle_outlined, color: Sym.danger),
                       )
-                    : IconButton(
-                        onPressed: widget.enabled ? widget.onSend : null,
-                        tooltip: 'Send',
-                        icon: Icon(Icons.arrow_upward,
-                            color: widget.enabled ? Sym.amber : Sym.inkFaint),
+                    : Tooltip(
+                        message: 'Send',
+                        child: Material(
+                          color: widget.enabled
+                              ? Sym.amber
+                              : Sym.hairline.withValues(alpha: 0.6),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: widget.enabled ? widget.onSend : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.arrow_upward,
+                                size: 18,
+                                color: widget.enabled ? Sym.bg : Sym.inkFaint,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
               ),
             ],

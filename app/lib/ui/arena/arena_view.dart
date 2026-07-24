@@ -53,7 +53,7 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
         ? Row(children: [
             const Expanded(
                 child: ArenaPane(side: ArenaSide.left, ownComposer: false)),
-            Container(width: 1, color: Sym.hairline),
+            const _ArenaSeam(),
             const Expanded(
                 child: ArenaPane(side: ArenaSide.right, ownComposer: false)),
           ])
@@ -68,7 +68,7 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
     final panesIndependent = wide
         ? Row(children: [
             Expanded(child: ArenaPane(side: ArenaSide.left, ownComposer: true)),
-            VerticalDivider(width: 1, color: Sym.hairline),
+            const _ArenaSeam(),
             Expanded(child: ArenaPane(side: ArenaSide.right, ownComposer: true)),
           ])
         : Column(children: [
@@ -82,9 +82,13 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
         _ArenaToolbar(arena: arena, tally: tally, pairing: pairing),
         Expanded(child: duel ? panes : panesIndependent),
         if (duel && arena.roundComplete && !arena.voted)
-          _VoteBar(
-            leftModel: left.model ?? 'left',
-            rightModel: right.model ?? 'right',
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            child: _VoteBar(
+              leftModel: left.model ?? 'left',
+              rightModel: right.model ?? 'right',
+            ),
           ),
         if (duel)
           _DuelComposer(
@@ -99,6 +103,31 @@ class _ArenaViewState extends ConsumerState<ArenaView> {
   }
 }
 
+/// The seam where the two podiums meet — a hairline that warms to amber at the
+/// left edge and cools to teal at the right, so the divider itself says "human
+/// vs machine" without shouting.
+class _ArenaSeam extends StatelessWidget {
+  const _ArenaSeam();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 1,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Sym.amber.withValues(alpha: 0.28),
+              Sym.hairline,
+              Sym.hairline,
+              Sym.teal.withValues(alpha: 0.28),
+            ],
+            stops: const [0.0, 0.22, 0.78, 1.0],
+          ),
+        ),
+      );
+}
+
 class _ArenaToolbar extends ConsumerWidget {
   final ArenaState arena;
   final Tally? tally;
@@ -110,40 +139,69 @@ class _ArenaToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final duel = arena.mode == ArenaMode.duel;
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
+        color: Sym.surface,
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: Row(
         children: [
-          _ModeChip(
-            label: 'DUEL',
-            active: duel,
-            onTap: () =>
-                ref.read(arenaProvider.notifier).setMode(ArenaMode.duel),
-          ),
-          const SizedBox(width: 6),
-          _ModeChip(
-            label: 'INDEPENDENT',
-            active: !duel,
-            onTap: () =>
-                ref.read(arenaProvider.notifier).setMode(ArenaMode.independent),
+          // Segmented mode toggle — one hairline-bordered pill, two halves.
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              color: Sym.bg.withValues(alpha: 0.5),
+              border: Border.all(color: Sym.hairline),
+            ),
+            child: Row(
+              children: [
+                _ModeChip(
+                  label: 'DUEL',
+                  active: duel,
+                  onTap: () =>
+                      ref.read(arenaProvider.notifier).setMode(ArenaMode.duel),
+                ),
+                _ModeChip(
+                  label: 'INDEPENDENT',
+                  active: !duel,
+                  onTap: () => ref
+                      .read(arenaProvider.notifier)
+                      .setMode(ArenaMode.independent),
+                ),
+              ],
+            ),
           ),
           const Spacer(),
           if (duel && tally != null) ...[
             // The scoreboard: LEFT wins · ties · RIGHT wins for this pairing.
-            Text('${tally!.left}',
-                style: Sym.mono(
-                    size: 14, color: Sym.amber, weight: FontWeight.w600)),
-            Text('  ·  ', style: Sym.mono(size: 11, color: Sym.inkFaint)),
-            Text('${tally!.ties}',
-                style: Sym.mono(size: 12, color: Sym.inkDim)),
-            Text('  ·  ', style: Sym.mono(size: 11, color: Sym.inkFaint)),
-            Text('${tally!.right}',
-                style: Sym.mono(
-                    size: 14, color: Sym.teal, weight: FontWeight.w600)),
-            const SizedBox(width: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: Sym.bg.withValues(alpha: 0.5),
+                border: Border.all(color: Sym.hairline),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${tally!.left}',
+                      style: Sym.mono(
+                          size: 14, color: Sym.amber, weight: FontWeight.w700)),
+                  Text('  ·  ',
+                      style: Sym.mono(size: 11, color: Sym.inkFaint)),
+                  Text('${tally!.ties}',
+                      style: Sym.mono(size: 12, color: Sym.inkDim)),
+                  Text('  ·  ',
+                      style: Sym.mono(size: 11, color: Sym.inkFaint)),
+                  Text('${tally!.right}',
+                      style: Sym.mono(
+                          size: 14, color: Sym.teal, weight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
           ],
           IconButton(
             tooltip: 'Clear both conversations',
@@ -165,14 +223,17 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(5),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: active ? Sym.surfaceRaised : Colors.transparent,
-            border: Border.all(color: active ? Sym.amberDim : Sym.hairline),
+            borderRadius: BorderRadius.circular(5),
+            color: active
+                ? Sym.amber.withValues(alpha: 0.14)
+                : Colors.transparent,
           ),
           child: Text(label,
               style: Sym.label(
@@ -192,12 +253,19 @@ class _VoteBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vote = ref.read(arenaProvider.notifier).vote;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Sym.surfaceRaised,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Sym.hairline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -208,9 +276,9 @@ class _VoteBar extends ConsumerWidget {
             color: Sym.amber,
             onTap: () => vote(ArenaSide.left),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           _VoteButton(label: 'TIE', color: Sym.inkDim, onTap: () => vote(null)),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           _VoteButton(
             label: '$rightModel ▶',
             color: Sym.teal,
@@ -222,7 +290,7 @@ class _VoteBar extends ConsumerWidget {
   }
 }
 
-class _VoteButton extends StatelessWidget {
+class _VoteButton extends StatefulWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
@@ -230,20 +298,39 @@ class _VoteButton extends StatelessWidget {
   const _VoteButton({required this.label, required this.color, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withValues(alpha: 0.55)),
-          ),
-          child: Text(
-            label,
-            style: Sym.mono(size: 10, color: color, weight: FontWeight.w600),
-            overflow: TextOverflow.ellipsis,
+  State<_VoteButton> createState() => _VoteButtonState();
+}
+
+class _VoteButtonState extends State<_VoteButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            constraints: const BoxConstraints(maxWidth: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              color: _hover
+                  ? widget.color.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              border: Border.all(
+                  color:
+                      widget.color.withValues(alpha: _hover ? 0.85 : 0.5)),
+            ),
+            child: Text(
+              widget.label,
+              style: Sym.mono(
+                  size: 10, color: widget.color, weight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       );
@@ -268,19 +355,26 @@ class _DuelComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       constraints: const BoxConstraints(maxWidth: 900),
       decoration: BoxDecoration(
         color: Sym.surfaceRaised,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Sym.hairline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 0, 6),
+              padding: const EdgeInsets.fromLTRB(16, 8, 0, 8),
               child: TextField(
                 controller: input,
                 enabled: enabled && !streaming,

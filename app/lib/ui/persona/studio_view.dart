@@ -138,14 +138,22 @@ class _Roster extends ConsumerWidget {
     return Container(
       width: 232,
       decoration: BoxDecoration(
+        color: Sym.surface.withValues(alpha: 0.4),
         border: Border(right: BorderSide(color: Sym.hairline)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text('PERSONAS', style: Sym.label(color: Sym.amberDim)),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+            child: Row(
+              children: [
+                Text('PERSONAS', style: Sym.label(color: Sym.amberDim)),
+                const Spacer(),
+                Text('${personas.length}',
+                    style: Sym.mono(size: 10, color: Sym.inkFaint)),
+              ],
+            ),
           ),
           Expanded(
             child: ListView.builder(
@@ -184,7 +192,7 @@ class _Roster extends ConsumerWidget {
   }
 }
 
-class _RosterTile extends StatelessWidget {
+class _RosterTile extends StatefulWidget {
   final Persona persona;
   final bool selected;
   final VoidCallback onTap;
@@ -193,45 +201,70 @@ class _RosterTile extends StatelessWidget {
       {required this.persona, required this.selected, required this.onTap});
 
   @override
+  State<_RosterTile> createState() => _RosterTileState();
+}
+
+class _RosterTileState extends State<_RosterTile> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final persona = widget.persona;
+    final selected = widget.selected;
     final accent = personaAccent(persona.accentIndex);
     final preview = persona.instructions.trim().isEmpty
         ? 'no instructions yet'
         : persona.instructions.trim().split('\n').first;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? Sym.surfaceRaised : null,
-          border: Border(
-            left: BorderSide(
-                color: selected ? accent : Colors.transparent, width: 2),
-          ),
-        ),
-        child: Row(
-          children: [
-            PersonaSigil(glyph: persona.glyph, accent: accent, size: 30),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(persona.name,
-                      style: Sym.body(
-                          size: 13.5, color: selected ? Sym.ink : Sym.inkDim),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 1),
-                  Text(preview,
-                      style: Sym.mono(size: 9, color: Sym.inkFaint),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? Sym.surfaceRaised
+                : (_hover ? Sym.surface : null),
+            border: Border(
+              left: BorderSide(
+                  color: selected
+                      ? accent
+                      : (_hover
+                          ? accent.withValues(alpha: 0.35)
+                          : Colors.transparent),
+                  width: 2),
             ),
-          ],
+          ),
+          child: Row(
+            children: [
+              PersonaSigil(glyph: persona.glyph, accent: accent, size: 30),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(persona.name,
+                        style: Sym.body(
+                            size: 13.5,
+                            color: selected ? Sym.ink : Sym.inkDim),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 1),
+                    Text(preview,
+                        style: Sym.mono(size: 9, color: Sym.inkFaint),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

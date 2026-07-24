@@ -57,29 +57,69 @@ class Readout extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label, style: Sym.label()),
-          const SizedBox(height: 2),
-          Text(value,
-              style: Sym.mono(
-                  size: 14, color: valueColor ?? Sym.ink, weight: FontWeight.w600)),
+          const SizedBox(height: 3),
+          AnimatedDefaultTextStyle(
+            duration: Sym.motionBase,
+            curve: Sym.ease,
+            style: Sym.mono(
+                size: 14,
+                color: valueColor ?? Sym.ink,
+                weight: FontWeight.w600,
+                spacing: 0.3),
+            child: Text(value),
+          ),
         ],
       );
 }
 
-/// Status dot: amber pulse = online, faint = offline.
-class StatusDot extends StatelessWidget {
+/// Status dot: a soft teal beacon that breathes when online, faint when off.
+class StatusDot extends StatefulWidget {
   final bool online;
   const StatusDot({super.key, required this.online});
 
   @override
-  Widget build(BuildContext context) => Container(
+  State<StatusDot> createState() => _StatusDotState();
+}
+
+class _StatusDotState extends State<StatusDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.online) {
+      return Container(
         width: 8,
         height: 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: online ? Sym.teal : Sym.inkFaint,
-          boxShadow: online
-              ? [BoxShadow(color: Sym.teal.withValues(alpha: 0.5), blurRadius: 6)]
-              : null,
+          color: Sym.inkFaint,
         ),
       );
+    }
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = 0.35 + 0.4 * _c.value; // gentle breathing halo
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Sym.teal,
+            boxShadow: Sym.glow(Sym.teal, strength: t, blur: 7),
+          ),
+        );
+      },
+    );
+  }
 }

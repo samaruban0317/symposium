@@ -15,6 +15,9 @@ OllamaEngine engineForSource(ModelSource s) => switch (s.kind) {
         ),
       _ => OllamaEngine(
           s.baseUrl,
-          headers: {if (s.pairingCode != null) kPairingHeader: s.pairingCode!},
+          headers: {
+            if (s.pairingCode != null) kPairingHeader: s.pairingCode!,
+            if (s.adminToken != null) kAdminHeader: s.adminToken!,
+          },
         ),
     };

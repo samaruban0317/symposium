@@ -296,6 +296,7 @@ class Sidebar extends ConsumerWidget {
               if (url.isEmpty) return;
               if (!url.startsWith('http')) url = 'http://$url';
               ref.read(pairingCodeProvider.notifier).state = null;
+              ref.read(adminTokenProvider.notifier).state = null;
               ref.read(endpointProvider.notifier).state =
                   url.replaceAll(RegExp(r'/+$'), '');
               Navigator.pop(ctx);
@@ -574,6 +575,7 @@ class _CloudSection extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(6),
                   onTap: () {
                     ref.read(pairingCodeProvider.notifier).state = null;
+                    ref.read(adminTokenProvider.notifier).state = null;
                     ref.read(endpointProvider.notifier).state = s.baseUrl;
                   },
                   child: Container(
@@ -1035,17 +1037,26 @@ class _NetworkSection extends ConsumerWidget {
   void _joinByIp(BuildContext context, WidgetRef ref) {
     final ipCtrl = TextEditingController();
     final codeCtrl = TextEditingController();
+    final adminCtrl = TextEditingController();
 
     void connect(BuildContext ctx) {
-      var addr = ipCtrl.text.trim();
-      if (addr.isEmpty) return;
-      addr = addr
+      final raw = ipCtrl.text.trim();
+      if (raw.isEmpty) return;
+      // Preserve an explicit https:// — the public cloud host
+      // (host.visionarysparks.in) sits behind Caddy on 443. Only a bare LAN
+      // address gets the default proxy port + http.
+      final isHttps = raw.startsWith('https://');
+      var addr = raw
           .replaceFirst(RegExp('^https?://'), '')
           .replaceAll(RegExp(r'/+$'), '');
-      if (!addr.contains(':')) addr = '$addr:$kProxyPort';
+      if (!addr.contains(':') && !isHttps) addr = '$addr:$kProxyPort';
       final code = codeCtrl.text.trim();
+      final admin = adminCtrl.text.trim();
       ref.read(pairingCodeProvider.notifier).state = code.isEmpty ? null : code;
-      ref.read(endpointProvider.notifier).state = 'http://$addr';
+      ref.read(adminTokenProvider.notifier).state =
+          admin.isEmpty ? null : admin;
+      ref.read(endpointProvider.notifier).state =
+          '${isHttps ? 'https' : 'http'}://$addr';
       Navigator.pop(ctx);
     }
 
@@ -1092,6 +1103,19 @@ class _NetworkSection extends ConsumerWidget {
                       borderSide: BorderSide(color: Sym.hairline)),
                 ),
               ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: adminCtrl,
+                obscureText: true,
+                style: Sym.mono(size: 13, color: Sym.ink),
+                onSubmitted: (_) => connect(ctx),
+                decoration: InputDecoration(
+                  hintText: 'admin token — hosts only, leave blank if guest',
+                  hintStyle: Sym.mono(size: 12, color: Sym.inkFaint),
+                  enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Sym.hairline)),
+                ),
+              ),
             ],
           ),
         ),
@@ -1117,6 +1141,7 @@ class _NetworkSection extends ConsumerWidget {
       if (peer.pairing && ctrl.text.trim().length != 6) return;
       ref.read(pairingCodeProvider.notifier).state =
           peer.pairing ? ctrl.text.trim() : null;
+      ref.read(adminTokenProvider.notifier).state = null;
       ref.read(endpointProvider.notifier).state = peer.baseUrl;
       Navigator.pop(ctx);
     }

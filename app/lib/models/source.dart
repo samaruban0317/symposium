@@ -25,6 +25,7 @@ class ModelSource {
 
   final String? apiKey; // cloud only — stored locally on this device
   final String? pairingCode; // peer only
+  final String? adminToken; // peer/host only — bearer may pull/delete models
   final String? providerId; // cloud only: 'openai' | 'gemini' | 'anthropic' | 'custom'
 
   const ModelSource({
@@ -34,10 +35,16 @@ class ModelSource {
     required this.baseUrl,
     this.apiKey,
     this.pairingCode,
+    this.adminToken,
     this.providerId,
   });
 
-  ModelSource copyWith({String? label, String? baseUrl, String? apiKey, String? pairingCode}) =>
+  ModelSource copyWith(
+          {String? label,
+          String? baseUrl,
+          String? apiKey,
+          String? pairingCode,
+          String? adminToken}) =>
       ModelSource(
         id: id,
         label: label ?? this.label,
@@ -45,6 +52,7 @@ class ModelSource {
         baseUrl: baseUrl ?? this.baseUrl,
         apiKey: apiKey ?? this.apiKey,
         pairingCode: pairingCode ?? this.pairingCode,
+        adminToken: adminToken ?? this.adminToken,
         providerId: providerId,
       );
 
@@ -55,6 +63,7 @@ class ModelSource {
         'baseUrl': baseUrl,
         if (apiKey != null) 'apiKey': apiKey,
         if (pairingCode != null) 'pairingCode': pairingCode,
+        if (adminToken != null) 'adminToken': adminToken,
         if (providerId != null) 'providerId': providerId,
       };
 
@@ -65,6 +74,7 @@ class ModelSource {
         baseUrl: j['baseUrl'] as String,
         apiKey: j['apiKey'] as String?,
         pairingCode: j['pairingCode'] as String?,
+        adminToken: j['adminToken'] as String?,
         providerId: j['providerId'] as String?,
       );
 }

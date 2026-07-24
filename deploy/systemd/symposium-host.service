@@ -1,0 +1,40 @@
+# Symposium host proxy — the reverse proxy that enforces pairing + admin auth.
+#
+# PLACEHOLDER unit. The headless entrypoint at bin/symposium_host.dart is built
+# SEPARATELY (parent task). This unit assumes that CLI:
+#   - reads SYMPOSIUM_PAIRING_CODE, SYMPOSIUM_ADMIN_TOKEN, OLLAMA_HOST from env
+#   - starts HostServer on port 47475 forwarding to OLLAMA_HOST
+#
+# Secrets come from /etc/symposium-host.env (chmod 600, root-owned). NEVER put
+# the pairing code / admin token directly in this unit — units are world-readable.
+#
+# Install target: /etc/systemd/system/symposium-host.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now symposium-host
+
+[Unit]
+Description=Symposium host proxy (pairing + admin auth in front of Ollama)
+# Needs the engine up first; if Ollama dies, restart this too.
+After=ollama.service network-online.target
+Wants=ollama.service network-online.target
+
+[Service]
+# Secrets + config (SYMPOSIUM_PAIRING_CODE, SYMPOSIUM_ADMIN_TOKEN, OLLAMA_HOST).
+EnvironmentFile=/etc/symposium-host.env
+
+# The app directory that contains bin/symposium_host.dart and pubspec.yaml.
+# Adjust to wherever the founder clones the repo (e.g. /opt/symposium/app).
+WorkingDirectory=/opt/symposium/app
+
+# The headless entrypoint (built separately). `dart run` from the app dir.
+ExecStart=/usr/bin/dart run bin/symposium_host.dart
+
+Restart=on-failure
+RestartSec=3
+
+# Run as a non-root service account, not root.
+# User=symposium
+# Group=symposium
+
+[Install]
+WantedBy=multi-user.target

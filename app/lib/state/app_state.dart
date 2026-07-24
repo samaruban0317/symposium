@@ -17,11 +17,21 @@ final endpointProvider = StateProvider<String>((ref) => 'http://127.0.0.1:11434'
 /// header on every request. Null when talking to your own local engine.
 final pairingCodeProvider = StateProvider<String?>((ref) => null);
 
+/// Set when you connect to a host AS ITS ADMIN — sent as the admin header so
+/// management calls (pull / delete / create) are allowed. Null for viewers
+/// (friends), whose management calls the host answers with 403. Harmless on
+/// chat/read requests, which the host never gates on it.
+final adminTokenProvider = StateProvider<String?>((ref) => null);
+
 final engineProvider = Provider<OllamaEngine>((ref) {
   final code = ref.watch(pairingCodeProvider);
+  final admin = ref.watch(adminTokenProvider);
   return OllamaEngine(
     ref.watch(endpointProvider),
-    headers: code == null ? const {} : {kPairingHeader: code},
+    headers: {
+      if (code != null) kPairingHeader: code,
+      if (admin != null) kAdminHeader: admin,
+    },
   );
 });
 

@@ -18,6 +18,8 @@ library;
 const int kDiscoveryPort = 47474;
 const int kProxyPort = 47475;
 const String kPairingHeader = 'x-symposium-code';
+// Admin token header — only its bearer may run Ollama management endpoints.
+const String kAdminHeader = 'x-symposium-admin';
 
 class DiscoveredHost {
   final String id; // random per-session id, used to hide your own beacon

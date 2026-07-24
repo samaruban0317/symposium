@@ -1,0 +1,25 @@
+# Ollama engine — bound to localhost ONLY.
+# The engine must never be public: the Symposium proxy (47475) is the only
+# thing allowed to talk to it, and Caddy is the only thing allowed to talk to
+# the proxy. Keep 11434 on 127.0.0.1 so the firewall + this binding both agree.
+#
+# Install target: /etc/systemd/system/ollama.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ollama
+
+[Unit]
+Description=Ollama local LLM engine (localhost-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Bind the engine to loopback so it is NOT reachable from the network directly.
+Environment=OLLAMA_HOST=127.0.0.1:11434
+ExecStart=/usr/local/bin/ollama serve
+Restart=on-failure
+RestartSec=3
+# Ollama caches models here; adjust if the founder puts models on a data disk.
+# Environment=OLLAMA_MODELS=/data/ollama
+
+[Install]
+WantedBy=multi-user.target

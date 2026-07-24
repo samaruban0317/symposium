@@ -1,0 +1,43 @@
+# Symposium cloud host — Caddy v2 config
+# -----------------------------------------------------------------------------
+# Purpose: terminate HTTPS at host.visionarysparks.in and forward plain HTTP to
+# the Symposium host proxy on localhost:47475. Caddy gets a Let's Encrypt cert
+# automatically (needs port 80 + 443 reachable and DNS pointing here).
+#
+# AUTH IS NOT CADDY'S JOB. The Symposium proxy (host_server.dart) already
+# enforces the 6-digit pairing code (x-symposium-code) and the admin token
+# (x-symposium-admin). Do NOT add `basicauth` here — it would double-prompt and
+# fight the app's own viewer/admin policy. Caddy only does TLS + forward.
+# -----------------------------------------------------------------------------
+
+host.visionarysparks.in {
+	# Reverse-proxy everything to the Symposium host proxy.
+	reverse_proxy localhost:47475 {
+		# Caddy forwards ALL request headers by default, so the pairing header
+		# (x-symposium-code) and admin header (x-symposium-admin) pass straight
+		# through untouched — the app layer reads them and decides viewer vs admin.
+
+		# Streaming: -1 disables response buffering so token streams (SSE /
+		# NDJSON from Ollama chat/generate) flush to the client immediately
+		# instead of being held back. Critical for a live "typing" feel.
+		flush_interval -1
+	}
+
+	# Optional: keep logs modest; access logs can grow fast on a GPU box.
+	log {
+		output stdout
+		level  WARN
+	}
+}
+
+# -----------------------------------------------------------------------------
+# ALTERNATIVE (commented out) — point straight at Ollama, no Symposium proxy.
+# Use ONLY for a private, single-operator test. This BYPASSES the pairing code
+# AND the admin-token check, so anyone who reaches the URL can chat AND pull or
+# delete models. NEVER use this for a public host / anything shared with friends.
+# -----------------------------------------------------------------------------
+# host.visionarysparks.in {
+# 	reverse_proxy localhost:11434 {
+# 		flush_interval -1
+# 	}
+# }

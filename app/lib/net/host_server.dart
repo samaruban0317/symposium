@@ -1,7 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'jwt.dart';
 import 'protocol.dart';
+import 'rate_limiter.dart';
+
+/// The three trust tiers a request can resolve to. All non-preflight requests
+/// still need the pairing code first; the tier layers on top of that.
+enum Tier { guest, student, admin }
+
+/// Default small-model allowlist guests may chat with (case-insensitive prefix
+/// match on the requested model name). Keeps friends off the host's big models.
+const List<String> kDefaultGuestModels = [
+  'llama3.2:1b',
+  'gemma3:1b',
+  'gemma3:4b',
+  'qwen2.5:0.5b',
+  'qwen2.5:1.5b',
+];
 
 /// The heart of "host mode": a tiny reverse proxy.
 ///
@@ -11,18 +28,42 @@ import 'protocol.dart';
 /// forwards each request to the local engine, first checking the 6-digit
 /// pairing code. Streaming (SSE / NDJSON) passes straight through because both
 /// directions are piped as byte streams, never buffered whole.
+///
+/// On top of the pairing gate it resolves a [Tier] per request:
+///   • Admin   — valid `x-symposium-admin`; bypasses all limits, all endpoints.
+///   • Student — valid unexpired `Authorization: Bearer <jwt>` (HS256 vs
+///               [jwtSecret]); [studentPerDay] req/day; management still denied.
+///   • Guest   — pairing code only; [guestPerHour] req/hour; management denied
+///               and chat restricted to the small-model allowlist.
 class HostServer {
   final String upstream; // the host's local engine, e.g. http://127.0.0.1:11434
   final String pairingCode;
   // Admin token for management endpoints. Empty = no admin → management denied
   // for everyone (friends are viewer-only: chat/read yes, pull/delete no).
   final String adminToken;
+  // Shared secret for verifying student JWTs (Supabase). Empty = student tier
+  // disabled → JWT holders are treated as guests.
+  final String jwtSecret;
+  // Per-tier rate limits (admins are unlimited).
+  final int guestPerHour;
+  final int studentPerDay;
+  // Small models guests may chat with (case-insensitive prefix match).
+  final List<String> guestModels;
 
   HttpServer? _server;
   final _client = HttpClient();
+  final _limiter = RateLimiter();
   int requestsServed = 0;
 
-  HostServer({required this.upstream, required this.pairingCode, this.adminToken = ''});
+  HostServer({
+    required this.upstream,
+    required this.pairingCode,
+    this.adminToken = '',
+    this.jwtSecret = '',
+    this.guestPerHour = 15,
+    this.studentPerDay = 150,
+    List<String>? guestModels,
+  }) : guestModels = guestModels ?? kDefaultGuestModels;
 
   /// Ollama's model-management surface: downloading, creating, deleting, pushing,
   /// copying models, and blob uploads. These mutate the host's engine, so only
@@ -44,10 +85,64 @@ class HostServer {
     return false;
   }
 
+  /// Chat/generate endpoints whose body carries a `model` — the ones the guest
+  /// allowlist must inspect (so we buffer the full body for these paths only).
+  bool _isChatGenerate(String method, String path) {
+    if (method.toUpperCase() != 'POST') return false;
+    var p = path.toLowerCase();
+    if (!p.startsWith('/')) p = '/$p';
+    return p == '/api/chat' ||
+        p == '/api/generate' ||
+        p == '/v1/chat/completions';
+  }
+
+  /// True if `model` is on the guest allowlist (case-insensitive prefix match).
+  bool _guestModelAllowed(String? model) {
+    if (model == null || model.isEmpty) return false;
+    final m = model.toLowerCase();
+    for (final allowed in guestModels) {
+      if (m.startsWith(allowed.toLowerCase())) return true;
+    }
+    return false;
+  }
+
   Future<void> start(int port) async {
     final server = await HttpServer.bind(InternetAddress.anyIPv4, port);
     _server = server;
     server.listen(_handle, onError: (_) {});
+  }
+
+  /// Resolve the caller's tier AFTER the pairing check has passed. Order matters:
+  /// admin token wins, then a valid student JWT, else guest. Returns the tier and
+  /// the rate-limit key (JWT `sub` for students, client IP for guests; admins
+  /// aren't limited so their key is unused).
+  ({Tier tier, String key}) _resolveTier(HttpRequest req) {
+    // Admin: header present and equal to a non-empty admin token.
+    if (adminToken.isNotEmpty &&
+        req.headers.value(kAdminHeader) == adminToken) {
+      return (tier: Tier.admin, key: 'admin');
+    }
+    // Student: a Bearer JWT that verifies and is unexpired (secret configured).
+    final auth = req.headers.value(HttpHeaders.authorizationHeader);
+    if (jwtSecret.isNotEmpty && auth != null && auth.startsWith('Bearer ')) {
+      final claims = verifyJwtHs256(auth.substring(7).trim(), jwtSecret);
+      if (claims != null) {
+        final sub = (claims['sub'] as String?) ?? 'unknown';
+        return (tier: Tier.student, key: 'student:$sub');
+      }
+    }
+    // Guest: keyed by client IP (first X-Forwarded-For hop behind Caddy).
+    return (tier: Tier.guest, key: 'guest:${_clientIp(req)}');
+  }
+
+  /// Client IP for guest rate-limiting: prefer the first hop of X-Forwarded-For
+  /// (we sit behind Caddy), else the raw connection address.
+  String _clientIp(HttpRequest req) {
+    final xff = req.headers.value('x-forwarded-for');
+    if (xff != null && xff.trim().isNotEmpty) {
+      return xff.split(',').first.trim();
+    }
+    return req.connectionInfo?.remoteAddress.address ?? 'unknown';
   }
 
   Future<void> _handle(HttpRequest req) async {
@@ -61,7 +156,8 @@ class HostServer {
       req.response.headers
         ..set('Access-Control-Allow-Origin', '*')
         ..set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        ..set('Access-Control-Allow-Headers', 'content-type, authorization, $kPairingHeader, $kAdminHeader')
+        ..set('Access-Control-Allow-Headers',
+            'content-type, authorization, $kPairingHeader, $kAdminHeader')
         ..set('Access-Control-Allow-Private-Network', 'true');
       if (req.method == 'OPTIONS') {
         req.response.statusCode = HttpStatus.noContent;
@@ -73,25 +169,89 @@ class HostServer {
           ..statusCode = HttpStatus.unauthorized
           ..headers.contentType = ContentType.json
           ..write(jsonEncode({
-            'error': 'pairing code missing or wrong — ask the host for the 6-digit code'
+            'error':
+                'pairing code missing or wrong — ask the host for the 6-digit code'
           }));
         await req.response.close();
         return;
       }
 
-      // Viewer/admin policy: management endpoints need a valid admin token.
-      // Empty adminToken means no admin is configured, so management is denied
-      // for everyone.
-      if (_isManagement(req.method, req.uri.path)) {
-        if (adminToken.isEmpty || req.headers.value(kAdminHeader) != adminToken) {
+      final resolved = _resolveTier(req);
+      final tier = resolved.tier;
+
+      // Our own route: mobile config. Answered by the proxy, not forwarded.
+      if (req.method == 'GET' && req.uri.path.toLowerCase() == '/v1/mobile/config') {
+        await _serveMobileConfig(req, tier);
+        return;
+      }
+
+      // Viewer/admin policy: management endpoints need the admin tier.
+      if (_isManagement(req.method, req.uri.path) && tier != Tier.admin) {
+        req.response
+          ..statusCode = HttpStatus.forbidden
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({
+            'error': 'admin token required — this host is viewer-only for you'
+          }));
+        await req.response.close();
+        return;
+      }
+
+      // Rate limiting: admins bypass; students/guests use fixed-window counters.
+      if (tier != Tier.admin) {
+        final limit = tier == Tier.student ? studentPerDay : guestPerHour;
+        final window =
+            tier == Tier.student ? const Duration(days: 1) : const Duration(hours: 1);
+        final windowLabel = tier == Tier.student ? 'day' : 'hour';
+        if (!_limiter.allow(resolved.key, limit, window)) {
+          final retry = _limiter.retryAfterSeconds(resolved.key);
           req.response
-            ..statusCode = HttpStatus.forbidden
+            ..statusCode = HttpStatus.tooManyRequests
             ..headers.contentType = ContentType.json
+            ..headers.set('Retry-After', '$retry')
             ..write(jsonEncode({
-              'error': 'admin token required — this host is viewer-only for you'
+              'error':
+                  'rate limit reached — tier ${tier.name}, limit $limit/$windowLabel'
             }));
           await req.response.close();
           return;
+        }
+      }
+
+      // Guest small-model allowlist: for chat/generate we must read the body to
+      // learn the model. Buffer the FULL body, parse JSON, enforce, then forward
+      // the buffered bytes. Non-chat paths keep straight-through piping.
+      List<int>? bufferedBody;
+      if (_isChatGenerate(req.method, req.uri.path)) {
+        final builder = BytesBuilder(copy: false);
+        await for (final chunk in req) {
+          builder.add(chunk);
+        }
+        bufferedBody = builder.takeBytes();
+        if (tier == Tier.guest) {
+          String? model;
+          try {
+            final decoded = jsonDecode(utf8.decode(bufferedBody));
+            if (decoded is Map) model = decoded['model'] as String?;
+          } catch (_) {
+            // Fail OPEN on non-JSON / unparseable bodies — don't break requests.
+            model = null;
+          }
+          // Only enforce when we actually parsed a model. A missing/unparseable
+          // model falls through (fail-open) rather than blocking.
+          if (model != null && !_guestModelAllowed(model)) {
+            req.response
+              ..statusCode = HttpStatus.forbidden
+              ..headers.contentType = ContentType.json
+              ..write(jsonEncode({
+                'error':
+                    'guest tier is limited to small models — "$model" is not allowed. '
+                        'Log in as a student, or pick one of: ${guestModels.join(", ")}',
+                'small_models': guestModels,
+              }));
+            await req.response.close();
+            return;
+          }
         }
       }
 
@@ -102,12 +262,28 @@ class HostServer {
       final proxReq = await _client.openUrl(req.method, target);
       req.headers.forEach((name, values) {
         final n = name.toLowerCase();
-        if (n == 'host' || n == 'connection' || n == kPairingHeader || n == kAdminHeader) return;
+        // Strip hop-by-hop + our own auth headers so they never reach Ollama.
+        if (n == 'host' ||
+            n == 'connection' ||
+            n == 'authorization' ||
+            n == kPairingHeader ||
+            n == kAdminHeader) {
+          return;
+        }
+        // If we buffered the body, drop the original content-length; we set our
+        // own from the buffered bytes below.
+        if (bufferedBody != null && n == 'content-length') return;
         for (final v in values) {
           proxReq.headers.add(name, v);
         }
       });
-      await proxReq.addStream(req);
+      if (bufferedBody != null) {
+        proxReq.headers.contentLength = bufferedBody.length;
+        proxReq.add(bufferedBody);
+        await proxReq.flush();
+      } else {
+        await proxReq.addStream(req);
+      }
       final proxRes = await proxReq.close();
 
       req.response.statusCode = proxRes.statusCode;
@@ -130,6 +306,31 @@ class HostServer {
         await req.response.close();
       } catch (_) {}
     }
+  }
+
+  /// GET /v1/mobile/config — answered by the proxy itself (never forwarded).
+  /// Tells a mobile/web client its resolved tier, the guest small-model
+  /// allowlist, the per-tier limits, and a `recommend` hint. The client decides
+  /// (based on device RAM) whether to honour the WebLLM hint and run models
+  /// on-device, or fall back to this cloud host.
+  Future<void> _serveMobileConfig(HttpRequest req, Tier tier) async {
+    // Capable clients can run small models client-side (WebLLM); low-RAM
+    // devices should use this cloud host. Static hint — the client decides.
+    final recommend = tier == Tier.guest ? 'webllm' : 'cloud';
+    req.response
+      ..statusCode = HttpStatus.ok
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({
+        'tier': tier.name,
+        'small_models': guestModels,
+        'limits': {
+          'guest_per_hour': guestPerHour,
+          'student_per_day': studentPerDay,
+          'admin': 'unlimited',
+        },
+        'recommend': recommend,
+      }));
+    await req.response.close();
   }
 
   Future<void> stop() async {

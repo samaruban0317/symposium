@@ -1,0 +1,324 @@
+# ============================================================================
+#  Symposium — Release build & publish
+# ----------------------------------------------------------------------------
+#  WHAT THIS DOES (in plain words):
+#    When you push a version tag like `v0.2.3`, GitHub builds Symposium for
+#    Windows, Linux and Android IN PARALLEL, then publishes a GitHub Release
+#    for that tag with all three files attached PLUS a small JSON file
+#    (`downloads-manifest.json`) that lists the latest 3 versions and where to
+#    download each. The company site (visionarysparks.in/downloads) reads that
+#    JSON so it can always show the newest builds without a code change.
+#
+#  HOW TO CUT A RELEASE (the only command you run):
+#    git tag v0.2.3
+#    git push --tags
+#  ...that's it. Watch the "Actions" tab; a Release appears when it's green.
+#
+#  SECRETS: none needed. GitHub provides `GITHUB_TOKEN` automatically; it is
+#  enough to create the Release and to delete (prune) old ones in THIS repo.
+# ============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"          # any tag that starts with v, e.g. v0.2.3
+  workflow_dispatch:  # lets you run it by hand from the Actions tab (uses the
+                      # `manual_version` input below instead of a tag)
+    inputs:
+      manual_version:
+        description: "Version to build when run manually (no leading v), e.g. 0.2.3"
+        required: true
+        default: "0.0.0"
+
+# Only one release run at a time per tag; a newer push cancels an in-flight one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+# The prune step deletes old Releases, so we need write access to contents.
+permissions:
+  contents: write
+
+# ----------------------------------------------------------------------------
+#  Job 0: figure out the version + a date/time stamp ONCE, share with the rest.
+#  (Every other job reads these via `needs.setup.outputs.*` so the version is
+#   computed in a single place.)
+# ----------------------------------------------------------------------------
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}      # e.g. 0.2.3  (no leading v)
+      tag: ${{ steps.v.outputs.tag }}              # e.g. v0.2.3
+      released_at: ${{ steps.v.outputs.released_at }}  # ISO 8601 UTC timestamp
+    steps:
+      - name: Derive version + timestamp
+        id: v
+        shell: bash
+        run: |
+          # Tag push  -> strip refs/tags/ ; manual run -> use the input.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW="${{ github.event.inputs.manual_version }}"
+            TAG="v${RAW#v}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"                         # v0.2.3 -> 0.2.3
+          STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"     # ISO 8601, UTC
+          echo "tag=$TAG"                 >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "released_at=$STAMP"       >> "$GITHUB_OUTPUT"
+          echo "Building version=$VERSION (tag=$TAG) at $STAMP"
+
+  # --------------------------------------------------------------------------
+  #  Job 1: Windows .zip
+  # --------------------------------------------------------------------------
+  build-windows:
+    needs: setup
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build Windows release
+        shell: bash
+        working-directory: app
+        run: |
+          flutter pub get
+          # In case the windows/ platform folder isn't committed, generate it.
+          flutter create --platforms=windows .
+          flutter build windows --release
+
+      - name: Zip the build
+        shell: bash
+        working-directory: app
+        run: |
+          VERSION="${{ needs.setup.outputs.version }}"
+          OUT="Symposium-${VERSION}-windows.zip"
+          # -j would flatten; we keep the folder tree so the .exe runs with its DLLs.
+          powershell -Command "Compress-Archive -Path 'build/windows/x64/runner/Release/*' -DestinationPath '$OUT' -Force"
+          echo "Created app/$OUT"
+
+      - name: Upload artifact for the release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: app/Symposium-${{ needs.setup.outputs.version }}-windows.zip
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  #  Job 2: Linux .tar.gz
+  # --------------------------------------------------------------------------
+  build-linux:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux desktop build deps (GTK)
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build Linux release
+        working-directory: app
+        run: |
+          flutter pub get
+          # The linux/ platform folder may not be committed; generate it if missing.
+          flutter create --platforms=linux .
+          flutter build linux --release
+
+      - name: Tar.gz the bundle
+        working-directory: app
+        run: |
+          VERSION="${{ needs.setup.outputs.version }}"
+          OUT="Symposium-${VERSION}-linux.tar.gz"
+          # -C changes into the bundle dir so the archive contents aren't nested
+          # under build/linux/... ; extracting gives a clean `bundle/` folder.
+          tar -czf "$OUT" -C build/linux/x64/release/bundle .
+          echo "Created app/$OUT"
+
+      - name: Upload artifact for the release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: app/Symposium-${{ needs.setup.outputs.version }}-linux.tar.gz
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  #  Job 3: Android .apk
+  # --------------------------------------------------------------------------
+  build-android:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Android Gradle needs a JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build Android APK (release)
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Rename to versioned APK
+        working-directory: app
+        run: |
+          VERSION="${{ needs.setup.outputs.version }}"
+          OUT="Symposium-${VERSION}-android.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "$OUT"
+          echo "Created app/$OUT"
+
+      - name: Upload artifact for the release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: app/Symposium-${{ needs.setup.outputs.version }}-android.apk
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  #  Job 4: publish the Release + manifest, then prune to the newest 3.
+  #  Runs only after all three builds succeed.
+  # --------------------------------------------------------------------------
+  release:
+    needs: [setup, build-windows, build-linux, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts     # each job's files land in artifacts/<job-name>/
+
+      - name: Collect artifacts into one folder
+        shell: bash
+        run: |
+          mkdir -p out
+          # Flatten: move every built file to ./out regardless of sub-folder.
+          find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.apk' \) -exec mv {} out/ \;
+          echo "Release assets:"
+          ls -la out
+
+      # -- Build the downloads-manifest.json ---------------------------------
+      # The site reads this to render the download buttons. We list the CURRENT
+      # release first ("latest") and the newest 3 versions overall ("versions"),
+      # each with a direct, permanent GitHub download URL per platform.
+      - name: Write downloads-manifest.json
+        id: manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.setup.outputs.version }}"
+          TAG="${{ needs.setup.outputs.tag }}"
+          STAMP="${{ needs.setup.outputs.released_at }}"
+          REPO="${{ github.repository }}"        # owner/name
+          BASE="https://github.com/${REPO}/releases/download"
+
+          # Direct asset URLs for THIS release (the /download/<tag>/<file> form is
+          # a stable redirect to the actual asset — perfect for a manifest).
+          win="${BASE}/${TAG}/Symposium-${VERSION}-windows.zip"
+          lin="${BASE}/${TAG}/Symposium-${VERSION}-linux.tar.gz"
+          apk="${BASE}/${TAG}/Symposium-${VERSION}-android.apk"
+
+          # --- Build the "versions" array: this release + up to 2 prior ones. ---
+          # Pull existing releases (newest first), keep the 2 that aren't this tag,
+          # and rebuild their platform URLs the same deterministic way.
+          prior_json="[]"
+          if command -v gh >/dev/null 2>&1; then
+            # tagName + publishedAt for existing releases, newest first, excluding this tag.
+            prior_json="$(gh release list --repo "$REPO" --limit 20 --json tagName,publishedAt \
+              | jq --arg tag "$TAG" '[ .[] | select(.tagName != $tag) ]' )"
+          fi
+
+          # Emit the manifest with jq so quoting/escaping is always valid JSON.
+          jq -n \
+            --arg version "$VERSION" \
+            --arg released_at "$STAMP" \
+            --arg win "$win" --arg lin "$lin" --arg apk "$apk" \
+            --arg base "$BASE" \
+            --argjson prior "$prior_json" '
+            def entry(v; ts):
+              { version: v, released_at: ts,
+                windows_url: ($base + "/v" + v + "/Symposium-" + v + "-windows.zip"),
+                linux_url:   ($base + "/v" + v + "/Symposium-" + v + "-linux.tar.gz"),
+                android_url: ($base + "/v" + v + "/Symposium-" + v + "-android.apk") };
+            # this release, as the head entry
+            (entry($version; $released_at)) as $head
+            # prior releases -> entries (strip a leading v from their tag names)
+            | ([ $prior[] | entry((.tagName | ltrimstr("v")); .publishedAt) ]) as $rest
+            | { latest: { version: $version, released_at: $released_at,
+                          windows_url: $win, linux_url: $lin, android_url: $apk },
+                # newest 3 overall: this one + the two most recent priors
+                versions: ([ $head ] + $rest)[0:3] }
+          ' > out/downloads-manifest.json
+
+          echo "----- downloads-manifest.json -----"
+          cat out/downloads-manifest.json
+
+      - name: Create / update the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.setup.outputs.tag }}
+          name: Symposium ${{ needs.setup.outputs.version }}
+          body: |
+            Symposium ${{ needs.setup.outputs.version }} — built ${{ needs.setup.outputs.released_at }}.
+
+            Downloads:
+            - Windows: `Symposium-${{ needs.setup.outputs.version }}-windows.zip`
+            - Linux: `Symposium-${{ needs.setup.outputs.version }}-linux.tar.gz`
+            - Android: `Symposium-${{ needs.setup.outputs.version }}-android.apk`
+
+            `downloads-manifest.json` (attached) lists the latest 3 builds for the site.
+          files: |
+            out/Symposium-${{ needs.setup.outputs.version }}-windows.zip
+            out/Symposium-${{ needs.setup.outputs.version }}-linux.tar.gz
+            out/Symposium-${{ needs.setup.outputs.version }}-android.apk
+            out/downloads-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # -- Prune to the 3 newest releases ------------------------------------
+      # Old builds pile up otherwise. `gh release list` returns releases newest
+      # first; we keep the first 3 tags and delete every release after that
+      # (also deleting its git tag with --cleanup-tag so nothing dangles).
+      - name: Prune old releases (keep newest 3)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          # Tag names, newest first.
+          mapfile -t TAGS < <(gh release list --repo "$REPO" --limit 100 --json tagName,createdAt \
+            | jq -r 'sort_by(.createdAt) | reverse | .[].tagName')
+          echo "Found ${#TAGS[@]} releases: ${TAGS[*]:-(none)}"
+          i=0
+          for t in "${TAGS[@]}"; do
+            i=$((i+1))
+            if [ "$i" -le 3 ]; then
+              echo "keep   #$i  $t"
+            else
+              echo "delete #$i  $t"
+              gh release delete "$t" --repo "$REPO" --yes --cleanup-tag
+            fi
+          done

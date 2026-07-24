@@ -12,6 +12,10 @@
 // Config comes from the environment (see deploy/symposium-host.env.example):
 //   SYMPOSIUM_PAIRING_CODE   required — the 6-digit code friends type
 //   SYMPOSIUM_ADMIN_TOKEN    optional — bearer may pull/delete; empty = nobody can
+//   SUPABASE_JWT_SECRET      optional — verifies student JWTs; empty = student
+//                            tier off (JWT holders fall back to guest)
+//   SYMPOSIUM_GUEST_PER_HOUR optional — guest req/hour cap (default 15)
+//   SYMPOSIUM_STUDENT_PER_DAY optional — student req/day cap (default 150)
 //   OLLAMA_HOST              default 127.0.0.1:11434 — the local engine
 //   SYMPOSIUM_PORT          default 47475 — the public proxy port (behind Caddy)
 
@@ -26,6 +30,10 @@ Future<void> main(List<String> args) async {
 
   final pairingCode = (env['SYMPOSIUM_PAIRING_CODE'] ?? '').trim();
   final adminToken = (env['SYMPOSIUM_ADMIN_TOKEN'] ?? '').trim();
+  final jwtSecret = (env['SUPABASE_JWT_SECRET'] ?? '').trim();
+  final guestPerHour = int.tryParse(env['SYMPOSIUM_GUEST_PER_HOUR'] ?? '') ?? 15;
+  final studentPerDay =
+      int.tryParse(env['SYMPOSIUM_STUDENT_PER_DAY'] ?? '') ?? 150;
   final upstream = _resolveUpstream(env['OLLAMA_HOST']);
   final port = int.tryParse(env['SYMPOSIUM_PORT'] ?? '') ?? kProxyPort;
 
@@ -38,6 +46,10 @@ Future<void> main(List<String> args) async {
     _log('WARN: SYMPOSIUM_ADMIN_TOKEN is empty — management endpoints '
         '(pull/delete/create) are DISABLED for everyone. Nobody can download '
         'models remotely until you set an admin token.');
+  }
+  if (jwtSecret.isEmpty) {
+    _log('WARN: SUPABASE_JWT_SECRET is empty — student tier is OFF. Bearer-JWT '
+        'holders are treated as guests (small models only, $guestPerHour/hr).');
   }
 
   // Best-effort reachability check. Don't crash if the engine is still coming
@@ -52,6 +64,9 @@ Future<void> main(List<String> args) async {
     upstream: upstream,
     pairingCode: pairingCode,
     adminToken: adminToken,
+    jwtSecret: jwtSecret,
+    guestPerHour: guestPerHour,
+    studentPerDay: studentPerDay,
   );
 
   try {
@@ -62,7 +77,9 @@ Future<void> main(List<String> args) async {
   }
 
   _log('Symposium host proxy listening on 0.0.0.0:$port → $upstream '
-      '(admin: ${adminToken.isEmpty ? "off" : "on"}). '
+      '(admin: ${adminToken.isEmpty ? "off" : "on"}, '
+      'student tier: ${jwtSecret.isEmpty ? "off" : "on"}; '
+      'guest $guestPerHour/hr, student $studentPerDay/day). '
       'Expose it publicly only behind Caddy/HTTPS.');
 
   // Graceful shutdown so systemd stop/restart is clean.

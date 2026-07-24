@@ -2,23 +2,15 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'host_limits.dart';
 import 'jwt.dart';
 import 'protocol.dart';
 import 'rate_limiter.dart';
+import 'usage_tracker.dart';
 
 /// The three trust tiers a request can resolve to. All non-preflight requests
 /// still need the pairing code first; the tier layers on top of that.
 enum Tier { guest, student, admin }
-
-/// Default small-model allowlist guests may chat with (case-insensitive prefix
-/// match on the requested model name). Keeps friends off the host's big models.
-const List<String> kDefaultGuestModels = [
-  'llama3.2:1b',
-  'gemma3:1b',
-  'gemma3:4b',
-  'qwen2.5:0.5b',
-  'qwen2.5:1.5b',
-];
 
 /// The heart of "host mode": a tiny reverse proxy.
 ///
@@ -32,9 +24,14 @@ const List<String> kDefaultGuestModels = [
 /// On top of the pairing gate it resolves a [Tier] per request:
 ///   • Admin   — valid `x-symposium-admin`; bypasses all limits, all endpoints.
 ///   • Student — valid unexpired `Authorization: Bearer <jwt>` (HS256 vs
-///               [jwtSecret]); [studentPerDay] req/day; management still denied.
-///   • Guest   — pairing code only; [guestPerHour] req/hour; management denied
-///               and chat restricted to the small-model allowlist.
+///               [jwtSecret]); `limits.studentPerDay` req/day; management denied.
+///   • Guest   — pairing code only; `limits.guestPerHour` req/hour; management
+///               denied and chat restricted to the small-model allowlist.
+///
+/// All the tunable policy lives in [limits] (a [HostLimits]) — think of it as
+/// the host's "router admin page". It's a mutable public field so an admin can
+/// swap it at runtime via `POST /v1/host/limits`. Everywhere a cap is read,
+/// `0` means "unlimited" and the check is skipped.
 class HostServer {
   final String upstream; // the host's local engine, e.g. http://127.0.0.1:11434
   final String pairingCode;
@@ -44,15 +41,15 @@ class HostServer {
   // Shared secret for verifying student JWTs (Supabase). Empty = student tier
   // disabled → JWT holders are treated as guests.
   final String jwtSecret;
-  // Per-tier rate limits (admins are unlimited).
-  final int guestPerHour;
-  final int studentPerDay;
-  // Small models guests may chat with (case-insensitive prefix match).
-  final List<String> guestModels;
+
+  /// Live host policy (connection/user/daily caps + per-tier quotas + the guest
+  /// model allowlist). Mutable so `POST /v1/host/limits` can swap it in place.
+  HostLimits limits;
 
   HttpServer? _server;
   final _client = HttpClient();
   final _limiter = RateLimiter();
+  final _usage = UsageTracker();
   int requestsServed = 0;
 
   HostServer({
@@ -60,10 +57,25 @@ class HostServer {
     required this.pairingCode,
     this.adminToken = '',
     this.jwtSecret = '',
-    this.guestPerHour = 15,
-    this.studentPerDay = 150,
-    List<String>? guestModels,
-  }) : guestModels = guestModels ?? kDefaultGuestModels;
+    HostLimits? limits,
+  }) : limits = limits ?? HostLimits.defaults;
+
+  /// Snapshot of live usage + the current policy, for `GET /v1/host/stats` and
+  /// any UI. Tier counts are keyed by tier name for JSON friendliness.
+  Map<String, dynamic> statsSnapshot() {
+    final byTier = _usage.todayByTier;
+    return {
+      'in_flight': _usage.inFlight,
+      'today_total': _usage.todayTotal,
+      'today_by_tier': {
+        'guest': byTier[Tier.guest] ?? 0,
+        'student': byTier[Tier.student] ?? 0,
+        'admin': byTier[Tier.admin] ?? 0,
+      },
+      'unique_users_today': _usage.uniqueUsersToday,
+      'limits': limits.toJson(),
+    };
+  }
 
   /// Ollama's model-management surface: downloading, creating, deleting, pushing,
   /// copying models, and blob uploads. These mutate the host's engine, so only
@@ -100,7 +112,7 @@ class HostServer {
   bool _guestModelAllowed(String? model) {
     if (model == null || model.isEmpty) return false;
     final m = model.toLowerCase();
-    for (final allowed in guestModels) {
+    for (final allowed in limits.guestModels) {
       if (m.startsWith(allowed.toLowerCase())) return true;
     }
     return false;
@@ -185,6 +197,59 @@ class HostServer {
         return;
       }
 
+      // Admin runtime endpoints — answered by the proxy, never forwarded. These
+      // are the "router admin page" over HTTP: swap limits, read live stats.
+      final path = req.uri.path.toLowerCase();
+      if (path == '/v1/host/limits' || path == '/v1/host/stats') {
+        await _serveHostAdmin(req, tier, path);
+        return;
+      }
+
+      // Runtime caps (admins bypass ALL of these). Order: max connections →
+      // max users/day → daily total cap. Any breach is a 503 with a friendly
+      // JSON message; `0` on a cap means "unlimited" so we skip it.
+      if (tier != Tier.admin) {
+        // Max concurrent connections.
+        if (limits.maxConnections > 0 &&
+            _usage.inFlight >= limits.maxConnections) {
+          req.response
+            ..statusCode = HttpStatus.serviceUnavailable
+            ..headers.contentType = ContentType.json
+            ..write(jsonEncode({
+              'error':
+                  'host at capacity — ${_usage.inFlight} connections in use, try again shortly'
+            }));
+          await req.response.close();
+          return;
+        }
+        // Max distinct users per day (identities already counted today pass).
+        if (limits.maxUsersPerDay > 0 &&
+            !_usage.isKnownToday(resolved.key) &&
+            _usage.uniqueUsersToday >= limits.maxUsersPerDay) {
+          req.response
+            ..statusCode = HttpStatus.serviceUnavailable
+            ..headers.contentType = ContentType.json
+            ..write(jsonEncode({
+              'error':
+                  'host is full for today — max ${limits.maxUsersPerDay} users/day reached'
+            }));
+          await req.response.close();
+          return;
+        }
+        // Daily total request cap (the "data cap").
+        if (limits.dailyTotalCap > 0 &&
+            _usage.todayTotal >= limits.dailyTotalCap) {
+          req.response
+            ..statusCode = HttpStatus.serviceUnavailable
+            ..headers.contentType = ContentType.json
+            ..write(jsonEncode({
+              'error': 'host daily limit reached — resets tomorrow'
+            }));
+          await req.response.close();
+          return;
+        }
+      }
+
       // Viewer/admin policy: management endpoints need the admin tier.
       if (_isManagement(req.method, req.uri.path) && tier != Tier.admin) {
         req.response
@@ -198,12 +263,14 @@ class HostServer {
       }
 
       // Rate limiting: admins bypass; students/guests use fixed-window counters.
+      // A limit of 0 means "unlimited" for that tier — skip the check entirely.
       if (tier != Tier.admin) {
-        final limit = tier == Tier.student ? studentPerDay : guestPerHour;
+        final limit =
+            tier == Tier.student ? limits.studentPerDay : limits.guestPerHour;
         final window =
             tier == Tier.student ? const Duration(days: 1) : const Duration(hours: 1);
         final windowLabel = tier == Tier.student ? 'day' : 'hour';
-        if (!_limiter.allow(resolved.key, limit, window)) {
+        if (limit > 0 && !_limiter.allow(resolved.key, limit, window)) {
           final retry = _limiter.retryAfterSeconds(resolved.key);
           req.response
             ..statusCode = HttpStatus.tooManyRequests
@@ -246,8 +313,8 @@ class HostServer {
               ..write(jsonEncode({
                 'error':
                     'guest tier is limited to small models — "$model" is not allowed. '
-                        'Log in as a student, or pick one of: ${guestModels.join(", ")}',
-                'small_models': guestModels,
+                        'Log in as a student, or pick one of: ${limits.guestModels.join(", ")}',
+                'small_models': limits.guestModels,
               }));
             await req.response.close();
             return;
@@ -255,51 +322,65 @@ class HostServer {
         }
       }
 
-      final target = Uri.parse(upstream).replace(
-        path: req.uri.path,
-        query: req.uri.hasQuery ? req.uri.query : null,
-      );
-      final proxReq = await _client.openUrl(req.method, target);
-      req.headers.forEach((name, values) {
-        final n = name.toLowerCase();
-        // Strip hop-by-hop + our own auth headers so they never reach Ollama.
-        if (n == 'host' ||
-            n == 'connection' ||
-            n == 'authorization' ||
-            n == kPairingHeader ||
-            n == kAdminHeader) {
-          return;
-        }
-        // If we buffered the body, drop the original content-length; we set our
-        // own from the buffered bytes below.
-        if (bufferedBody != null && n == 'content-length') return;
-        for (final v in values) {
-          proxReq.headers.add(name, v);
-        }
-      });
-      if (bufferedBody != null) {
-        proxReq.headers.contentLength = bufferedBody.length;
-        proxReq.add(bufferedBody);
-        await proxReq.flush();
-      } else {
-        await proxReq.addStream(req);
-      }
-      final proxRes = await proxReq.close();
+      // The request has cleared every cap and is about to be served: count it
+      // (day total + tier tally + remember the identity for the max-users cap).
+      _usage.record(tier, resolved.key);
 
-      req.response.statusCode = proxRes.statusCode;
-      proxRes.headers.forEach((name, values) {
-        final n = name.toLowerCase();
-        // Let dart:io manage framing of our own response.
-        if (n == 'transfer-encoding' || n == 'content-length' || n == 'connection') {
-          return;
+      // Bump the live in-flight counter around the actual proxying and ALWAYS
+      // drop it in the `finally` below — even if the upstream throws — so a
+      // crash mid-request can't leak a permanent "connection in use".
+      _usage.enter();
+      try {
+        final target = Uri.parse(upstream).replace(
+          path: req.uri.path,
+          query: req.uri.hasQuery ? req.uri.query : null,
+        );
+        final proxReq = await _client.openUrl(req.method, target);
+        req.headers.forEach((name, values) {
+          final n = name.toLowerCase();
+          // Strip hop-by-hop + our own auth headers so they never reach Ollama.
+          if (n == 'host' ||
+              n == 'connection' ||
+              n == 'authorization' ||
+              n == kPairingHeader ||
+              n == kAdminHeader) {
+            return;
+          }
+          // If we buffered the body, drop the original content-length; we set
+          // our own from the buffered bytes below.
+          if (bufferedBody != null && n == 'content-length') return;
+          for (final v in values) {
+            proxReq.headers.add(name, v);
+          }
+        });
+        if (bufferedBody != null) {
+          proxReq.headers.contentLength = bufferedBody.length;
+          proxReq.add(bufferedBody);
+          await proxReq.flush();
+        } else {
+          await proxReq.addStream(req);
         }
-        for (final v in values) {
-          req.response.headers.add(name, v);
-        }
-      });
-      await req.response.addStream(proxRes);
-      await req.response.close();
-      requestsServed++;
+        final proxRes = await proxReq.close();
+
+        req.response.statusCode = proxRes.statusCode;
+        proxRes.headers.forEach((name, values) {
+          final n = name.toLowerCase();
+          // Let dart:io manage framing of our own response.
+          if (n == 'transfer-encoding' ||
+              n == 'content-length' ||
+              n == 'connection') {
+            return;
+          }
+          for (final v in values) {
+            req.response.headers.add(name, v);
+          }
+        });
+        await req.response.addStream(proxRes);
+        await req.response.close();
+        requestsServed++;
+      } finally {
+        _usage.leave();
+      }
     } catch (_) {
       try {
         req.response.statusCode = HttpStatus.badGateway;
@@ -322,14 +403,72 @@ class HostServer {
       ..headers.contentType = ContentType.json
       ..write(jsonEncode({
         'tier': tier.name,
-        'small_models': guestModels,
+        'small_models': limits.guestModels,
         'limits': {
-          'guest_per_hour': guestPerHour,
-          'student_per_day': studentPerDay,
+          'guest_per_hour': limits.guestPerHour,
+          'student_per_day': limits.studentPerDay,
           'admin': 'unlimited',
         },
         'recommend': recommend,
       }));
+    await req.response.close();
+  }
+
+  /// Admin-only runtime control plane (the "router admin page" over HTTP):
+  ///   • `POST /v1/host/limits` — body is a PARTIAL [HostLimits] JSON; only the
+  ///     fields it names change (merged onto the current limits). Replies with
+  ///     the new full policy.
+  ///   • `GET  /v1/host/stats`  — replies with [statsSnapshot].
+  /// Non-admins get 403; these routes are never forwarded to the engine.
+  Future<void> _serveHostAdmin(HttpRequest req, Tier tier, String path) async {
+    if (tier != Tier.admin) {
+      req.response
+        ..statusCode = HttpStatus.forbidden
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({
+          'error': 'admin token required — host controls are admin-only'
+        }));
+      await req.response.close();
+      return;
+    }
+
+    if (req.method == 'GET' && path == '/v1/host/stats') {
+      req.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode(statsSnapshot()));
+      await req.response.close();
+      return;
+    }
+
+    if (req.method == 'POST' && path == '/v1/host/limits') {
+      // Small body — safe to buffer whole, then merge as a partial update.
+      final body = await utf8.decoder.bind(req).join();
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is! Map<String, dynamic>) throw const FormatException();
+        limits = HostLimits.fromJson(decoded, base: limits);
+      } catch (_) {
+        req.response
+          ..statusCode = HttpStatus.badRequest
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({'error': 'invalid JSON body for host limits'}));
+        await req.response.close();
+        return;
+      }
+      req.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode(limits.toJson()));
+      await req.response.close();
+      return;
+    }
+
+    // Right path, wrong method (e.g. GET /v1/host/limits).
+    req.response
+      ..statusCode = HttpStatus.methodNotAllowed
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({'error': 'method not allowed for $path'}));
     await req.response.close();
   }
 

@@ -21,7 +21,8 @@ Files in this folder:
 | `Caddyfile` | Terminates HTTPS at `host.visionarysparks.in`, forwards to the proxy on `:47475`. |
 | `systemd/ollama.service` | Runs Ollama bound to `127.0.0.1:11434`. |
 | `systemd/symposium-host.service` | Runs the Symposium host proxy on `:47475` (entrypoint built separately). |
-| `symposium-host.env.example` | Template for `/etc/symposium-host.env` (pairing code + admin token). |
+| `symposium-host.env.example` | Template for `/etc/symposium-host.env` (pairing code + admin token + host limits). |
+| `host-limits.example.json` | Example host-limits file (point `SYMPOSIUM_LIMITS_FILE` at a copy). |
 | `killswitch/budget-guard.sh` | Stops the GPU VM to enforce the ₹5,000 cap. |
 
 Architecture: **internet → Caddy (:443, TLS) → Symposium proxy (:47475, auth) → Ollama (:11434)**.
@@ -243,6 +244,71 @@ curl -H 'x-symposium-code: <YOUR_6_DIGIT_CODE>' https://host.visionarysparks.in/
     -H 'x-symposium-admin: <YOUR_ADMIN_TOKEN>' \
     -d '{"name":"llama3.2"}'
   ```
+
+---
+
+## 8b. Host controls (like a WiFi router)
+
+Think of the host like the **admin page of a home WiFi router**: you decide how
+many people can connect, how many can join per day, and a daily "data cap" on
+total requests — plus per-visitor quotas. Nothing here is a secret; it's just
+policy. **For every numeric limit, `0` means _unlimited_.** The **admin is always
+unlimited** regardless of these.
+
+The controls:
+
+| Limit | Meaning |
+|---|---|
+| `max_connections` | Max requests being handled **at the same time** (across everyone). |
+| `max_users_per_day` | Max **distinct** non-admin visitors (guest IPs + student logins) allowed to join in a day. |
+| `daily_total_cap` | The **"data cap"** — max total non-admin requests per day; once hit, non-admins get `503` until the day rolls over. |
+| `guest_per_hour` | Per **guest IP**: requests allowed per hour. |
+| `student_per_day` | Per **logged-in student** (JWT): requests allowed per day. |
+| `guest_models` | Which (small) models a guest may chat with. Students/admins are unrestricted. |
+
+### Where limits come from (precedence — later wins)
+
+1. **Built-in defaults** (sensible "lending a friend some of my PC" values).
+2. **A JSON file** — set `SYMPOSIUM_LIMITS_FILE=/etc/symposium-host-limits.json`
+   pointing at a copy of `deploy/host-limits.example.json`. Partial files are
+   fine; any field you omit keeps its default.
+3. **Individual env vars** in `/etc/symposium-host.env` (these override the file):
+   `SYMPOSIUM_MAX_CONNECTIONS`, `SYMPOSIUM_MAX_USERS_PER_DAY`,
+   `SYMPOSIUM_DAILY_TOTAL_CAP`, `SYMPOSIUM_GUEST_PER_HOUR`,
+   `SYMPOSIUM_STUDENT_PER_DAY`.
+
+The effective limits are printed in the startup log (`journalctl -u symposium-host`),
+so you can always confirm what's live. Changing env/file values takes effect on
+the **next restart** (`sudo systemctl restart symposium-host`).
+
+### Change limits live (no restart) — admin runtime endpoints
+
+Two **admin-only** endpoints let you tune and inspect the host while it runs.
+Both require **the pairing code header** (`x-symposium-code`) **and** the admin
+token header (`x-symposium-admin`) — same as any management call.
+
+- **`POST /v1/host/limits`** — send a **partial** JSON body; only the fields you
+  name change (0 = unlimited). Example: raise the daily cap and turn off the
+  per-guest hourly limit:
+  ```bash
+  curl -X POST https://host.visionarysparks.in/v1/host/limits \
+    -H 'x-symposium-code: <YOUR_6_DIGIT_CODE>' \
+    -H 'x-symposium-admin: <YOUR_ADMIN_TOKEN>' \
+    -H 'content-type: application/json' \
+    -d '{"daily_total_cap": 2000, "guest_per_hour": 0}'
+  ```
+
+- **`GET /v1/host/stats`** — read the current usage + effective limits (how many
+  are connected, requests served today, etc.):
+  ```bash
+  curl https://host.visionarysparks.in/v1/host/stats \
+    -H 'x-symposium-code: <YOUR_6_DIGIT_CODE>' \
+    -H 'x-symposium-admin: <YOUR_ADMIN_TOKEN>'
+  ```
+
+> Live changes made via `POST /v1/host/limits` are **not persisted** — on the
+> next restart the host re-reads the env/file. To make a change permanent, also
+> put it in `/etc/symposium-host.env` (or the limits JSON file).
 
 ---
 

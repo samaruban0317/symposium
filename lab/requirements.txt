@@ -1,0 +1,16 @@
+# ── Symposium Lab — Python dependencies ─────────────────────────────────────
+# IMPORTANT: use Python 3.11. Do NOT use 3.14 (torch/unsloth have no wheels yet).
+#   Windows:  py -3.11 -m venv .venv ; .venv\Scripts\Activate.ps1
+#   Linux:    python3.11 -m venv .venv ; source .venv/bin/activate
+#   then:     pip install -r requirements.txt
+#
+# This file installs the RAG pipeline (CPU-only — runs anywhere, no GPU).
+
+qdrant-client[fastembed]>=1.11   # local vector DB + CPU ONNX embeddings (no torch)
+pypdf>=5.0                       # PDF text extraction
+python-dotenv>=1.0               # load .env
+
+# ── Fine-tuning is installed SEPARATELY (GPU box only) ──────────────────────
+# It pulls a CUDA build of torch, so it is NOT listed above. On the 4050 / GCP GPU:
+#   pip install "unsloth @ git+https://github.com/unslothai/unsloth.git"
+#   pip install trl datasets

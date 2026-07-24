@@ -40,3 +40,12 @@ Thumbs.db
 desktop.ini
 
 app/android/build/
+
+# --- Lab (Python ML playground) & real env files ---
+lab/.venv/
+lab/.env
+lab/.qdrant/
+lab/outputs/
+lab/astra-lora/
+lab/astra-tutor/
+deploy/symposium-host.env

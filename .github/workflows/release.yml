@@ -214,6 +214,13 @@ jobs:
           mkdir -p out
           # Flatten: move every built file to ./out regardless of sub-folder.
           find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.apk' \) -exec mv {} out/ \;
+          # Also expose FIXED-name copies, so the website's stable
+          # /releases/latest/download/Symposium-<os>.<ext> links always resolve to
+          # the newest build — no site redeploy needed per release.
+          VERSION="${{ needs.setup.outputs.version }}"
+          cp "out/Symposium-${VERSION}-windows.zip"  out/Symposium-windows.zip
+          cp "out/Symposium-${VERSION}-linux.tar.gz" out/Symposium-linux.tar.gz
+          cp "out/Symposium-${VERSION}-android.apk"  out/Symposium-android.apk
           echo "Release assets:"
           ls -la out
 
@@ -293,6 +300,9 @@ jobs:
             out/Symposium-${{ needs.setup.outputs.version }}-windows.zip
             out/Symposium-${{ needs.setup.outputs.version }}-linux.tar.gz
             out/Symposium-${{ needs.setup.outputs.version }}-android.apk
+            out/Symposium-windows.zip
+            out/Symposium-linux.tar.gz
+            out/Symposium-android.apk
             out/downloads-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

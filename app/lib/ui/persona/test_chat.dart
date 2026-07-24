@@ -107,13 +107,21 @@ class _TestChatPaneState extends ConsumerState<TestChatPane> {
         if (studio.lastQuestion != null)
           Container(
             constraints: const BoxConstraints(maxWidth: 780),
-            margin: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+            margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            padding: const EdgeInsets.fromLTRB(12, 7, 7, 7),
+            decoration: BoxDecoration(
+              color: Sym.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Sym.hairline),
+            ),
             child: Row(
               children: [
+                Icon(Icons.replay, size: 13, color: Sym.inkFaint),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '“${studio.lastQuestion}”',
-                    style: Sym.mono(size: 9.5, color: Sym.inkFaint),
+                    style: Sym.mono(size: 9.5, color: Sym.inkDim),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -170,9 +178,10 @@ class _TestChatHeader extends StatelessWidget {
         .firstOrNull;
 
     return Container(
-      height: 44,
+      height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
+        color: Sym.surface.withValues(alpha: 0.4),
         border: Border(bottom: BorderSide(color: Sym.hairline)),
       ),
       child: Row(
@@ -217,9 +226,10 @@ class _TestChatHeader extends StatelessWidget {
                   ),
               ],
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
+                  color: Sym.teal.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(5),
                   border: Border.all(color: Sym.tealDim.withValues(alpha: 0.6)),
                 ),
                 child: Row(
@@ -228,7 +238,10 @@ class _TestChatHeader extends StatelessWidget {
                     Flexible(
                       child: Text(
                         studio.model ?? '—',
-                        style: Sym.mono(size: 10.5, color: Sym.teal),
+                        style: Sym.mono(
+                            size: 10.5,
+                            color: Sym.teal,
+                            weight: FontWeight.w500),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -380,12 +393,19 @@ class _TestComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+        margin: const EdgeInsets.fromLTRB(14, 8, 14, 14),
         constraints: const BoxConstraints(maxWidth: 780),
         decoration: BoxDecoration(
           color: Sym.surfaceRaised,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Sym.hairline),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 14,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,

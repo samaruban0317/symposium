@@ -191,10 +191,12 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
               color: Sym.surface,
               border: Border(top: BorderSide(color: Sym.hairline)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Row(
               children: [
-                Text('❯', style: Sym.mono(size: 12, color: Sym.teal)),
+                Text('❯',
+                    style: Sym.mono(
+                        size: 12, color: Sym.teal, weight: FontWeight.w700)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Focus(
@@ -218,25 +220,61 @@ class _TerminalPanelState extends ConsumerState<TerminalPanel> {
                 ),
                 for (final cmd in _quickCommands) ...[
                   const SizedBox(width: 6),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(4),
+                  _QuickCommandChip(
+                    label: cmd,
                     onTap: term.busy ? null : () => _submit(cmd),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Sym.hairline),
-                      ),
-                      child: Text(cmd,
-                          style: Sym.mono(size: 9.5, color: Sym.tealDim)),
-                    ),
                   ),
                 ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A quick-command chip in the terminal input row, with a gentle teal hover.
+class _QuickCommandChip extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const _QuickCommandChip({required this.label, required this.onTap});
+
+  @override
+  State<_QuickCommandChip> createState() => _QuickCommandChipState();
+}
+
+class _QuickCommandChipState extends State<_QuickCommandChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(5),
+            color: _hover && enabled
+                ? Sym.teal.withValues(alpha: 0.1)
+                : Colors.transparent,
+            border: Border.all(
+                color: _hover && enabled
+                    ? Sym.tealDim.withValues(alpha: 0.7)
+                    : Sym.hairline),
+          ),
+          child: Text(widget.label,
+              style: Sym.mono(
+                  size: 9.5, color: enabled ? Sym.tealDim : Sym.inkFaint)),
+        ),
       ),
     );
   }

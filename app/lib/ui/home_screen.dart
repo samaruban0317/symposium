@@ -34,10 +34,11 @@ class HomeScreen extends ConsumerWidget {
     // title + status only. Cramming three tabs plus instruments into a 360dp
     // header row is what caused the overflow stripes.
     final header = Container(
-      height: 58,
-      padding: EdgeInsets.symmetric(horizontal: wide ? 20 : 8),
+      height: 60,
+      padding: EdgeInsets.only(left: wide ? Sym.space5 : Sym.space2, right: wide ? Sym.space4 : Sym.space2),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Sym.hairline)),
+        color: Sym.surface.withValues(alpha: 0.35),
+        border: Border(bottom: Sym.hairSide),
       ),
       child: Row(
         children: [
@@ -50,7 +51,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           Text('☙',
               style: Sym.display(size: wide ? 17 : 15, color: Sym.amberDim)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Sym.space2),
           Flexible(
             child: Text('Symposium',
                 maxLines: 1,
@@ -61,7 +62,7 @@ class HomeScreen extends ConsumerWidget {
                     color: Sym.ink)),
           ),
           if (wide) ...[
-            const SizedBox(width: 10),
+            const SizedBox(width: Sym.space3),
             Flexible(
               child: Text(
                 'a gathering of minds',
@@ -70,21 +71,24 @@ class HomeScreen extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: Sym.space5),
+            // A hairline divider keeps the wordmark and the nav visually distinct.
+            Container(width: 1, height: 20, color: Sym.hairline),
+            const SizedBox(width: Sym.space4),
             _HeaderTab(
               label: 'CHAT',
               active: onChat,
               onTap: () =>
                   ref.read(homeTabProvider.notifier).state = HomeTab.chat,
             ),
-            const SizedBox(width: 2),
+            const SizedBox(width: Sym.space1),
             _HeaderTab(
               label: 'ARENA',
               active: tab == HomeTab.arena,
               onTap: () =>
                   ref.read(homeTabProvider.notifier).state = HomeTab.arena,
             ),
-            const SizedBox(width: 2),
+            const SizedBox(width: Sym.space1),
             _HeaderTab(
               label: 'STUDIO',
               active: tab == HomeTab.studio,
@@ -95,47 +99,47 @@ class HomeScreen extends ConsumerWidget {
           const Spacer(),
           // Chat-tab instruments; the arena carries its own telemetry per pane.
           if (wide && onChat && chat.tokPerSec > 0) ...[
-            Readout(
-              label: 'TOK/S',
-              value: chat.tokPerSec.toStringAsFixed(1),
-              valueColor: chat.isStreaming ? Sym.teal : Sym.inkDim,
+            AnimatedSwitcher(
+              duration: Sym.motionBase,
+              child: Readout(
+                key: ValueKey(chat.isStreaming),
+                label: 'TOK/S',
+                value: chat.tokPerSec.toStringAsFixed(1),
+                valueColor: chat.isStreaming ? Sym.teal : Sym.inkDim,
+              ),
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: Sym.space4),
           ],
-          IconButton(
+          _HeaderIconButton(
             tooltip: Sym.isDark ? 'Daylight theme' : 'Lamplight theme',
+            icon: Sym.isDark
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined,
             onPressed: () => setDarkMode(ref, !Sym.isDark),
-            icon: Icon(
-                Sym.isDark
-                    ? Icons.light_mode_outlined
-                    : Icons.dark_mode_outlined,
-                size: 17,
-                color: Sym.inkDim),
           ),
-          IconButton(
+          _HeaderIconButton(
             tooltip: 'About Symposium — a Visionary Sparks product',
+            icon: Icons.info_outline,
             onPressed: () => showSymAbout(context),
-            icon: Icon(Icons.info_outline, size: 17, color: Sym.inkDim),
           ),
           if (hasShell)
-            IconButton(
+            _HeaderIconButton(
               tooltip: termOpen ? 'Hide terminal' : 'Terminal',
+              icon: Icons.terminal,
+              active: termOpen,
               onPressed: () =>
                   ref.read(terminalOpenProvider.notifier).state = !termOpen,
-              icon: Icon(Icons.terminal,
-                  size: 17, color: termOpen ? Sym.amber : Sym.inkDim),
             ),
           if (onChat)
-            IconButton(
+            _HeaderIconButton(
               tooltip: 'New conversation',
+              icon: Icons.add_comment_outlined,
               onPressed: () =>
                   ref.read(chatControllerProvider.notifier).newConversation(),
-              icon:
-                  Icon(Icons.add_comment_outlined, size: 17, color: Sym.inkDim),
             ),
-          const SizedBox(width: 4),
+          const SizedBox(width: Sym.space3),
           StatusDot(online: online),
-          if (!wide) const SizedBox(width: 8),
+          if (!wide) const SizedBox(width: Sym.space2),
         ],
       ),
     );
@@ -198,9 +202,12 @@ class _BottomNav extends StatelessWidget {
       return Expanded(
         child: InkWell(
           onTap: () => ref.read(homeTabProvider.notifier).state = target,
-          child: Container(
+          child: AnimatedContainer(
+            duration: Sym.motionBase,
+            curve: Sym.ease,
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
+              gradient: active ? Sym.accentWash(Sym.amber, top: 0.10) : null,
               border: Border(
                 top: BorderSide(
                   color: active ? Sym.amber : Colors.transparent,
@@ -213,9 +220,13 @@ class _BottomNav extends StatelessWidget {
               children: [
                 Icon(icon, size: 18, color: active ? Sym.amber : Sym.inkDim),
                 const SizedBox(height: 3),
-                Text(label,
-                    style: Sym.label(
-                        color: active ? Sym.amber : Sym.inkDim, size: 8.5)),
+                AnimatedDefaultTextStyle(
+                  duration: Sym.motionBase,
+                  curve: Sym.ease,
+                  style: Sym.label(
+                      color: active ? Sym.amber : Sym.inkDim, size: 8.5),
+                  child: Text(label),
+                ),
               ],
             ),
           ),
@@ -226,7 +237,8 @@ class _BottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Sym.surface,
-        border: Border(top: BorderSide(color: Sym.hairline)),
+        border: Border(top: Sym.hairSide),
+        boxShadow: Sym.shadow(2),
       ),
       child: Row(
         children: [
@@ -239,9 +251,64 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// Header navigation tab: mono label with an amber underline when active —
-/// same instrument-panel language as the rest of the chrome.
-class _HeaderTab extends StatelessWidget {
+/// A header action button with a soft, animated hover surface and an optional
+/// "active" (amber) state — quieter and more consistent than a raw IconButton.
+class _HeaderIconButton extends StatefulWidget {
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool active;
+
+  const _HeaderIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.active = false,
+  });
+
+  @override
+  State<_HeaderIconButton> createState() => _HeaderIconButtonState();
+}
+
+class _HeaderIconButtonState extends State<_HeaderIconButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.active;
+    final color = active ? Sym.amber : (_hover ? Sym.ink : Sym.inkDim);
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: Sym.motionFast,
+            curve: Sym.ease,
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: active
+                  ? Sym.amber.withValues(alpha: 0.10)
+                  : (_hover ? Sym.ink.withValues(alpha: 0.05) : Colors.transparent),
+              borderRadius: const BorderRadius.all(Sym.rSm),
+            ),
+            child: Icon(widget.icon, size: 17, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Header navigation tab: mono label that lifts into a soft amber pill when
+/// active, with a hover tint when idle — same instrument-panel language as the
+/// rest of the chrome, but with gentle state transitions.
+class _HeaderTab extends StatefulWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
@@ -250,23 +317,48 @@ class _HeaderTab extends StatelessWidget {
       {required this.label, required this.active, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+  State<_HeaderTab> createState() => _HeaderTabState();
+}
+
+class _HeaderTabState extends State<_HeaderTab> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.active;
+    final color = active
+        ? Sym.amber
+        : (_hover ? Sym.ink : Sym.inkDim);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: Sym.motionFast,
+          curve: Sym.ease,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: active ? Sym.amber : Colors.transparent,
-                width: 2,
-              ),
+            color: active
+                ? Sym.amber.withValues(alpha: 0.12)
+                : (_hover ? Sym.ink.withValues(alpha: 0.04) : Colors.transparent),
+            borderRadius: const BorderRadius.all(Sym.rSm),
+            border: Border.all(
+              color: active ? Sym.amber.withValues(alpha: 0.32) : Colors.transparent,
+              width: 1,
             ),
           ),
-          child: Text(
-            label,
-            style: Sym.label(color: active ? Sym.amber : Sym.inkDim, size: 9.5),
+          child: AnimatedDefaultTextStyle(
+            duration: Sym.motionFast,
+            curve: Sym.ease,
+            style: Sym.label(color: color, size: 9.5, spacing: 1.6),
+            child: Text(widget.label),
           ),
         ),
-      );
+      ),
+    );
+  }
 }

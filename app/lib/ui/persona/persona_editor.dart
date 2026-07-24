@@ -71,19 +71,29 @@ class PersonaEditor extends ConsumerWidget {
             const SizedBox(width: 12),
             for (var i = 0; i < personaAccents.length; i++)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: 10),
                 child: InkWell(
                   onTap: () => roster.upsert(persona.copyWith(accentIndex: i)),
-                  borderRadius: BorderRadius.circular(9),
-                  child: Container(
-                    width: 18,
-                    height: 18,
+                  borderRadius: BorderRadius.circular(11),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    width: 22,
+                    height: 22,
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: personaAccents[i].withValues(alpha: 0.85),
                       border: Border.all(
-                        color: i == persona.accentIndex ? Sym.ink : Colors.transparent,
+                        color: i == persona.accentIndex
+                            ? personaAccents[i]
+                            : Colors.transparent,
                         width: 1.5,
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: personaAccents[i].withValues(alpha: 0.9),
                       ),
                     ),
                   ),
@@ -104,6 +114,13 @@ class PersonaEditor extends ConsumerWidget {
             RevisionChip(revision: persona.instructionsRevision, current: true),
             if (studio.draftDirty) ...[
               const SizedBox(width: 8),
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle, color: Sym.amber),
+              ),
+              const SizedBox(width: 5),
               Text('unapplied edits',
                   style: Sym.mono(size: 9, color: Sym.amber, spacing: 0.5)),
             ],

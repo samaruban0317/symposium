@@ -25,8 +25,15 @@ class ParameterLab extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
         color: Sym.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Sym.hairline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,19 +133,7 @@ class ParamChips extends ConsumerWidget {
         spacing: 6,
         runSpacing: 6,
         children: [
-          for (final l in labels)
-            InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Sym.amberDim.withValues(alpha: 0.6)),
-                ),
-                child: Text(l, style: Sym.mono(size: 9.5, color: Sym.amber, spacing: 1)),
-              ),
-            ),
+          for (final l in labels) _ParamChip(label: l, onTap: onTap),
         ],
       ),
     );
@@ -148,6 +143,46 @@ class ParamChips extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Controls
 // ---------------------------------------------------------------------------
+
+/// One active-parameter chip beside the composer, with a gentle hover fill.
+class _ParamChip extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ParamChip({required this.label, required this.onTap});
+
+  @override
+  State<_ParamChip> createState() => _ParamChipState();
+}
+
+class _ParamChipState extends State<_ParamChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5),
+              color: _hover
+                  ? Sym.amber.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              border:
+                  Border.all(color: Sym.amberDim.withValues(alpha: 0.6)),
+            ),
+            child: Text(widget.label,
+                style: Sym.mono(size: 9.5, color: Sym.amber, spacing: 1)),
+          ),
+        ),
+      );
+}
 
 class _LabSlider extends StatelessWidget {
   final String label;

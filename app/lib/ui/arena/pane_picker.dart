@@ -235,31 +235,75 @@ class _PanePickerDialogState extends ConsumerState<_PanePickerDialog> {
     Widget? trailing,
     required VoidCallback onTap,
   }) =>
-      Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      _SourceTile(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        trailing: trailing,
+        onTap: onTap,
+      );
+}
+
+/// A source row in the pane picker, with a gentle hover wash.
+class _SourceTile extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const _SourceTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+    required this.onTap,
+  });
+
+  @override
+  State<_SourceTile> createState() => _SourceTileState();
+}
+
+class _SourceTileState extends State<_SourceTile> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            margin: const EdgeInsets.symmetric(vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              color: _hover ? Sym.surface : Colors.transparent,
+            ),
             child: Row(
               children: [
-                Icon(icon, size: 13, color: Sym.tealDim),
-                const SizedBox(width: 8),
+                Icon(widget.icon, size: 14, color: Sym.tealDim),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title,
+                      Text(widget.title,
                           style: Sym.mono(
-                              size: 11.5, color: Sym.ink, weight: FontWeight.w600),
+                              size: 11.5,
+                              color: Sym.ink,
+                              weight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis),
-                      Text(subtitle,
+                      const SizedBox(height: 1),
+                      Text(widget.subtitle,
                           style: Sym.mono(size: 9.5, color: Sym.inkFaint)),
                     ],
                   ),
                 ),
-                if (trailing != null) trailing,
+                if (widget.trailing != null) widget.trailing!,
               ],
             ),
           ),
@@ -292,11 +336,22 @@ void showPaneModelPicker(BuildContext context, ArenaSide side) {
                       shrinkWrap: true,
                       children: [
                         for (final m in pane.models)
-                          Material(
-                            color: m.name == pane.model
-                                ? Sym.surface
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 2),
+                            decoration: BoxDecoration(
+                              color: m.name == pane.model
+                                  ? Sym.teal.withValues(alpha: 0.08)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border(
+                                left: BorderSide(
+                                  color: m.name == pane.model
+                                      ? Sym.teal
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(6),
                               onTap: () {
@@ -315,7 +370,7 @@ void showPaneModelPicker(BuildContext context, ArenaSide side) {
                                         style: Sym.mono(
                                             size: 12.5,
                                             color: m.name == pane.model
-                                                ? Sym.ink
+                                                ? Sym.teal
                                                 : Sym.inkDim,
                                             weight: m.name == pane.model
                                                 ? FontWeight.w600

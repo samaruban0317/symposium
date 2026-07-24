@@ -36,7 +36,18 @@ class PersonaSigil extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: accent.withValues(alpha: 0.5)),
-          color: accent.withValues(alpha: 0.08),
+          gradient: RadialGradient(
+            colors: [
+              accent.withValues(alpha: 0.16),
+              accent.withValues(alpha: 0.06),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.14),
+              blurRadius: size * 0.22,
+            ),
+          ],
         ),
         child: Text(glyph,
             style: Sym.display(size: size * 0.44, color: accent),
@@ -52,21 +63,24 @@ class RevisionChip extends StatelessWidget {
   const RevisionChip({super.key, required this.revision, required this.current});
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(
-              color: (current ? Sym.amber : Sym.inkFaint).withValues(alpha: 0.5)),
-        ),
-        child: Text('r$revision',
-            style: Sym.mono(
-                size: 9, color: current ? Sym.amber : Sym.inkFaint, spacing: 0.5)),
-      );
+  Widget build(BuildContext context) {
+    final c = current ? Sym.amber : Sym.inkFaint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(3),
+        color: current ? c.withValues(alpha: 0.12) : Colors.transparent,
+        border: Border.all(color: c.withValues(alpha: 0.5)),
+      ),
+      child: Text('r$revision',
+          style: Sym.mono(size: 9, color: c, spacing: 0.5)),
+    );
+  }
 }
 
-/// Bordered mono text button, the studio's workhorse control.
-class StudioButton extends StatelessWidget {
+/// Bordered mono text button, the studio's workhorse control. A gentle hover
+/// wash keeps it feeling alive without pulling focus.
+class StudioButton extends StatefulWidget {
   final String label;
   final Color? color; // null = the palette's dim ink
   final VoidCallback? onTap;
@@ -79,19 +93,38 @@ class StudioButton extends StatelessWidget {
       this.filled = false});
 
   @override
+  State<StudioButton> createState() => _StudioButtonState();
+}
+
+class _StudioButtonState extends State<StudioButton> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final c = onTap == null ? Sym.inkFaint : (color ?? Sym.inkDim);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: c.withValues(alpha: filled ? 0.9 : 0.45)),
-          color: filled ? c.withValues(alpha: 0.12) : null,
+    final enabled = widget.onTap != null;
+    final c = enabled ? (widget.color ?? Sym.inkDim) : Sym.inkFaint;
+    final fillAlpha = widget.filled
+        ? (_hover ? 0.2 : 0.12)
+        : (_hover && enabled ? 0.08 : 0.0);
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(
+                color: c.withValues(alpha: widget.filled ? 0.9 : 0.45)),
+            color: c.withValues(alpha: fillAlpha),
+          ),
+          child: Text(widget.label, style: Sym.label(size: 9, color: c)),
         ),
-        child: Text(label, style: Sym.label(size: 9, color: c)),
       ),
     );
   }

@@ -107,13 +107,20 @@ class _PullDialogState extends ConsumerState<PullDialog> {
                   InkWell(
                     borderRadius: BorderRadius.circular(999),
                     onTap: () => setState(() => _capFilter = cap),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 3),
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
+                        color: _capFilter == cap
+                            ? Sym.amber.withValues(alpha: 0.12)
+                            : Colors.transparent,
                         border: Border.all(
-                            color: _capFilter == cap ? Sym.amber : Sym.hairline),
+                            color: _capFilter == cap
+                                ? Sym.amber.withValues(alpha: 0.7)
+                                : Sym.hairline),
                       ),
                       child: Text(
                         cap?.toUpperCase() ?? 'ALL',
@@ -187,7 +194,7 @@ class _PullDialogState extends ConsumerState<PullDialog> {
 /// chip per size showing its RAM requirement — colored by whether it fits
 /// this device. Tapping the row installs the default tag; a chip installs
 /// that size.
-class _CatalogTile extends StatelessWidget {
+class _CatalogTile extends StatefulWidget {
   final CatalogEntry entry;
   final double? deviceRamGb;
   final double? deviceVramGb;
@@ -199,6 +206,18 @@ class _CatalogTile extends StatelessWidget {
     required this.deviceVramGb,
     required this.onInstall,
   });
+
+  @override
+  State<_CatalogTile> createState() => _CatalogTileState();
+}
+
+class _CatalogTileState extends State<_CatalogTile> {
+  bool _hover = false;
+
+  CatalogEntry get entry => widget.entry;
+  double? get deviceRamGb => widget.deviceRamGb;
+  double? get deviceVramGb => widget.deviceVramGb;
+  ValueChanged<String> get onInstall => widget.onInstall;
 
   /// The verdict that matters in practice:
   ///   teal   — weights + cache fit in VRAM → runs fully on the GPU, fast
@@ -256,13 +275,21 @@ class _CatalogTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
           onTap: () => onInstall(entry.name),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 130),
+            curve: Curves.easeOut,
+            margin: const EdgeInsets.only(bottom: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              color: _hover ? Sym.surface : Colors.transparent,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

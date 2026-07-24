@@ -20,6 +20,7 @@ import '../theme.dart';
 import 'about_dialog.dart';
 import 'pull_dialog.dart';
 import 'widgets.dart';
+import 'widgets/collapsible_group.dart';
 
 /// OS-aware "how do I start Ollama?" guidance, resolved only when the local
 /// engine is down. Empty for remote/cloud endpoints, where systemctl/brew/
@@ -59,13 +60,16 @@ class Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(sourcesLoadProvider); // hydrate saved sources from disk once
-    final models = ref.watch(modelsProvider);
-    final selected = ref.watch(selectedModelProvider);
     final online = ref.watch(serverOnlineProvider).valueOrNull ?? false;
     final endpoint = ref.watch(endpointProvider);
     final pull = ref.watch(pullControllerProvider);
     final active = ref.watch(activeSourceProvider);
     final isCloud = active.kind == SourceKind.cloud;
+
+    // Compact host-status glance for the header: hosting shows a teal dot +
+    // the live 6-digit code; otherwise the plain engine/cloud address.
+    final host = ref.watch(hostControllerProvider);
+    final hosting = host?.running == true;
 
     return Container(
       width: 264,
@@ -76,29 +80,41 @@ class Sidebar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Endpoint tile
+          // Tiny status glance — a dot + one-line label. Tap to edit the
+          // engine address; when hosting, it reads "Hosting · 478836".
           InkWell(
             onTap: () => _editEndpoint(context, ref, endpoint),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
               child: Row(
                 children: [
-                  StatusDot(online: online),
+                  StatusDot(online: hosting || online),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                            isCloud
-                                ? 'CLOUD · ${active.label.toUpperCase()}'
-                                : 'ENGINE',
-                            style: Sym.label()),
+                            hosting
+                                ? 'HOSTING'
+                                : isCloud
+                                    ? 'CLOUD · ${active.label.toUpperCase()}'
+                                    : 'ENGINE',
+                            style: Sym.label(
+                                color: hosting ? Sym.tealDim : Sym.inkDim)),
                         const SizedBox(height: 2),
                         Text(
-                          endpoint.replaceFirst(RegExp('^https?://'), ''),
+                          hosting
+                              ? '${host!.code} · friends can join'
+                              : endpoint.replaceFirst(RegExp('^https?://'), ''),
                           style: Sym.mono(
-                              size: 11, color: online ? Sym.ink : Sym.inkFaint),
+                              size: 11,
+                              color: hosting
+                                  ? Sym.teal
+                                  : (online ? Sym.ink : Sym.inkFaint),
+                              weight: hosting
+                                  ? FontWeight.w600
+                                  : FontWeight.w400),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -110,172 +126,72 @@ class Sidebar extends ConsumerWidget {
             ),
           ),
           const Divider(height: 1),
-          const _ConversationsSection(),
+          // The hero — conversations fill everything left over.
+          const Expanded(child: _ConversationsSection()),
           const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text('MODELS', style: Sym.label()),
-          ),
-          Expanded(
-            child: models.when(
-              loading: () => Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Sym.amberDim),
-                ),
-              ),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      online
-                          ? 'Could not list models.\n$e'
-                          : 'No engine at this address.\nIs Ollama running?',
-                      style: Sym.mono(size: 11, color: Sym.inkDim),
+          // Always-visible compact active-model selector.
+          const _ActiveModelBar(),
+          const Divider(height: 1),
+          // Everything infrastructural collapses below, closed by default.
+          CollapsibleGroup(
+            title: 'MODELS & CLOUD',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Cloud providers host their own catalog — no local install.
+                if (!isCloud)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                    child: OutlinedButton.icon(
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => const PullDialog(),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Sym.amber,
+                        side: BorderSide(color: Sym.amberDim),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const Icon(Icons.download_outlined, size: 16),
+                      label: Text('INSTALL MODEL',
+                          style: Sym.label(color: Sym.amber)),
                     ),
-                    // OS-aware next steps for a down LOCAL engine — Linux gets
-                    // systemctl/pacman, macOS gets brew, Windows the installer.
-                    if (!online)
-                      Consumer(builder: (_, r, __) {
-                        final hint = r.watch(_ollamaHintProvider).valueOrNull;
-                        if (hint == null || hint.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Text(
-                            hint,
-                            style: Sym.mono(size: 10, color: Sym.inkFaint),
-                          ),
-                        );
-                      }),
-                    // One click instead of "open a terminal and run ollama
-                    // serve" — only offered where that could actually work.
-                    if (!online &&
-                        endpoint.contains('127.0.0.1') &&
-                        !Platform.isAndroid &&
-                        !Platform.isIOS) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: () => _launchOllama(ref),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Sym.teal,
-                          side: BorderSide(color: Sym.tealDim),
+                  ),
+                const _CloudSection(),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          CollapsibleGroup(
+            title: 'NETWORK & HOSTING',
+            // Keep hosting state glanceable even when collapsed.
+            trailing: hosting
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Sym.teal,
                         ),
-                        child: Text('START OLLAMA',
-                            style: Sym.label(color: Sym.teal, size: 9)),
                       ),
+                      const SizedBox(width: 6),
+                      Text(host!.code,
+                          style: Sym.mono(
+                              size: 11,
+                              color: Sym.teal,
+                              weight: FontWeight.w600,
+                              spacing: 1)),
                     ],
-                  ],
-                ),
-              ),
-              data: (list) => list.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'No models yet.\nInstall one below — it is one click.',
-                        style: Sym.mono(size: 11, color: Sym.inkDim),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      itemCount: list.length,
-                      itemBuilder: (_, i) {
-                        final m = list[i];
-                        final isSel = m.name == selected;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Material(
-                            color:
-                                isSel ? Sym.surfaceRaised : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(6),
-                              onTap: () => ref
-                                  .read(selectedModelProvider.notifier)
-                                  .state = m.name,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 9),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: isSel
-                                          ? Sym.amber
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      m.name,
-                                      style: Sym.mono(
-                                        size: 12.5,
-                                        color: isSel ? Sym.ink : Sym.inkDim,
-                                        weight: isSel
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      [
-                                        if (m.parameterSize != null)
-                                          m.parameterSize!,
-                                        if (m.quantization != null)
-                                          m.quantization!,
-                                        m.sizeLabel,
-                                      ].join(' · '),
-                                      style: Sym.mono(
-                                          size: 10, color: Sym.inkFaint),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+                  )
+                : null,
+            child: const _NetworkSection(),
           ),
-          const Divider(height: 1),
-          const _CloudSection(),
-          const Divider(height: 1),
-          const _NetworkSection(),
           if (pull != null) _PullBanner(pull: pull),
-          // Cloud providers host their own catalog — nothing to download there.
-          if (!isCloud) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: OutlinedButton.icon(
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => const PullDialog(),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Sym.amber,
-                  side: BorderSide(color: Sym.amberDim),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                icon: const Icon(Icons.download_outlined, size: 16),
-                label:
-                    Text('INSTALL MODEL', style: Sym.label(color: Sym.amber)),
-              ),
-            ),
-          ],
           const Divider(height: 1),
           InkWell(
             onTap: () => showSymAbout(context),
@@ -294,8 +210,9 @@ class Sidebar extends ConsumerWidget {
 
   /// Fire-and-forget `ollama serve`, then re-ping. If the CLI is missing or
   /// the port is already taken this silently does nothing and the offline
-  /// message simply stays — no worse than before the click.
-  Future<void> _launchOllama(WidgetRef ref) async {
+  /// message simply stays — no worse than before the click. Static so the
+  /// active-model bar (where the offline affordance now lives) can call it.
+  static Future<void> _launchOllamaStatic(WidgetRef ref) async {
     try {
       await Process.start('ollama', ['serve'],
           mode: ProcessStartMode.detached, runInShell: true);
@@ -360,6 +277,170 @@ class Sidebar extends ConsumerWidget {
   }
 }
 
+/// Compact, always-visible active-model row — a single-line chip the user
+/// taps to switch the current model via a popup. Reuses [modelsProvider] and
+/// [selectedModelProvider] (same logic the old full list used). It also
+/// absorbs the old list's offline/error affordances (Ollama hint + one-click
+/// START OLLAMA) so a down engine still guides the user with the list gone.
+class _ActiveModelBar extends ConsumerWidget {
+  const _ActiveModelBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final models = ref.watch(modelsProvider);
+    final selected = ref.watch(selectedModelProvider);
+    final online = ref.watch(serverOnlineProvider).valueOrNull ?? false;
+    final endpoint = ref.watch(endpointProvider);
+
+    return models.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: SizedBox(
+          height: 16,
+          child: Row(children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ]),
+        ),
+      ),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              online
+                  ? 'Could not list models.'
+                  : 'No engine at this address.',
+              style: Sym.mono(size: 10.5, color: Sym.inkDim),
+            ),
+            // OS-aware next steps for a down LOCAL engine.
+            if (!online)
+              Consumer(builder: (_, r, __) {
+                final hint = r.watch(_ollamaHintProvider).valueOrNull;
+                if (hint == null || hint.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(hint,
+                      style: Sym.mono(size: 10, color: Sym.inkFaint)),
+                );
+              }),
+            // One click instead of "open a terminal and run ollama serve".
+            if (!online &&
+                endpoint.contains('127.0.0.1') &&
+                !Platform.isAndroid &&
+                !Platform.isIOS) ...[
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Sidebar._launchOllamaStatic(ref),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Sym.teal,
+                  side: BorderSide(color: Sym.tealDim),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                child: Text('START OLLAMA',
+                    style: Sym.label(color: Sym.teal, size: 9)),
+              ),
+            ],
+          ],
+        ),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Text('No models yet — install one below.',
+                style: Sym.mono(size: 10.5, color: Sym.inkDim)),
+          );
+        }
+        final String activeName = list.any((m) => m.name == selected)
+            ? selected!
+            : list.first.name;
+        return PopupMenuButton<String>(
+          padding: EdgeInsets.zero,
+          color: Sym.surfaceRaised,
+          tooltip: 'Switch model',
+          position: PopupMenuPosition.over,
+          onSelected: (name) =>
+              ref.read(selectedModelProvider.notifier).state = name,
+          itemBuilder: (_) => [
+            for (final m in list)
+              PopupMenuItem(
+                value: m.name,
+                child: Row(
+                  children: [
+                    Icon(
+                      m.name == activeName
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      size: 13,
+                      color: m.name == activeName ? Sym.amber : Sym.inkFaint,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(m.name,
+                              style: Sym.mono(
+                                  size: 11.5,
+                                  color: Sym.ink,
+                                  weight: m.name == activeName
+                                      ? FontWeight.w600
+                                      : FontWeight.w400),
+                              overflow: TextOverflow.ellipsis),
+                          Text(
+                            [
+                              if (m.parameterSize != null) m.parameterSize!,
+                              if (m.quantization != null) m.quantization!,
+                              m.sizeLabel,
+                            ].join(' · '),
+                            style: Sym.mono(size: 9, color: Sym.inkFaint),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome_outlined, size: 14, color: Sym.amber),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ACTIVE MODEL', style: Sym.label(size: 8.5)),
+                      const SizedBox(height: 2),
+                      Text(activeName,
+                          style: Sym.mono(
+                              size: 12,
+                              color: Sym.ink,
+                              weight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Icon(Icons.unfold_more, size: 15, color: Sym.inkFaint),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Past conversations — tap to reopen, keep talking, and the same history
 /// entry updates. The active one carries the amber edge like a selected model.
 class _ConversationsSection extends ConsumerWidget {
@@ -377,7 +458,7 @@ class _ConversationsSection extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -399,6 +480,8 @@ class _ConversationsSection extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 4),
+          // Conversations are the hero of the sidebar: hand the list every
+          // pixel that MODELS/CLOUD/NETWORK aren't using.
           if (conversations.isEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
@@ -406,10 +489,8 @@ class _ConversationsSection extends ConsumerWidget {
                   style: Sym.mono(size: 10, color: Sym.inkFaint)),
             )
           else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 176),
+            Expanded(
               child: ListView.builder(
-                shrinkWrap: true,
                 itemCount: conversations.length,
                 itemBuilder: (_, i) {
                   final c = conversations[i];

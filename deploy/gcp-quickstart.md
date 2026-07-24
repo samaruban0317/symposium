@@ -100,7 +100,7 @@ gcloud compute instances create symposium-gpu \
   --machine-type=g2-standard-4 \
   --accelerator=type=nvidia-l4,count=1 \
   --maintenance-policy=TERMINATE \
-  --image-family=common-cu124-debian-11 \
+  --image-family=common-cu129-ubuntu-2204-nvidia-580 \
   --image-project=deeplearning-platform-release \
   --metadata=install-nvidia-driver=True \
   --boot-disk-size=100GB
@@ -117,7 +117,7 @@ gcloud compute instances create symposium-gpu \
   --machine-type=n1-standard-4 \
   --accelerator=type=nvidia-tesla-t4,count=1 \
   --maintenance-policy=TERMINATE \
-  --image-family=common-cu124-debian-11 \
+  --image-family=common-cu129-ubuntu-2204-nvidia-580 \
   --image-project=deeplearning-platform-release \
   --metadata=install-nvidia-driver=True \
   --boot-disk-size=100GB
@@ -130,7 +130,7 @@ What the flags mean:
   preserved), never deleted; just start it again later.
 - `--accelerator=…` — the GPU. **Don't mix** an L4 with `n1-*` or a T4 with
   `g2-*`; the machine family and GPU go together as shown.
-- `--image-family=common-cu124-debian-11 --image-project=deeplearning-platform-release`
+- `--image-family=common-cu129-ubuntu-2204-nvidia-580 --image-project=deeplearning-platform-release`
   — Google's Deep Learning image with CUDA preinstalled; `install-nvidia-driver=True`
   finishes the driver on first boot.
 - `--maintenance-policy=TERMINATE` — required for GPU VMs.

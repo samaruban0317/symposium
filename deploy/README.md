@@ -92,7 +92,7 @@ gcloud compute instances create <INSTANCE> \
   --machine-type=n1-standard-4 \
   --accelerator=type=nvidia-tesla-t4,count=1 \
   --maintenance-policy=TERMINATE \
-  --image-family=common-cu124-debian-11 \
+  --image-family=common-cu129-ubuntu-2204-nvidia-580 \
   --image-project=deeplearning-platform-release \
   --metadata=install-nvidia-driver=True \
   --boot-disk-size=100GB --boot-disk-type=pd-balanced \
@@ -109,7 +109,7 @@ Key flags:
 - **L4 alternative** (newer, more VRAM, needs the G2 family — do NOT mix L4 with
   `n1-*`): swap the two lines above for
   `--machine-type=g2-standard-4 --accelerator=type=nvidia-l4,count=1`.
-- `--image-family=common-cu124-debian-11 --image-project=deeplearning-platform-release`
+- `--image-family=common-cu129-ubuntu-2204-nvidia-580 --image-project=deeplearning-platform-release`
   — Google's Deep Learning VM image with CUDA preinstalled; `install-nvidia-driver=True`
   finishes driver setup on first boot.
 - `--address symposium-host-ip` — attach the reserved static IP from step 2.

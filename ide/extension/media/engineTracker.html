@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="%CSP%" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="%STYLE_URI%" rel="stylesheet" />
+    <title>Engine Tracker</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="brand">Symposium</span>
+      <span id="status" class="status status--disconnected">
+        <span class="dot"></span><span id="statusText">disconnected</span>
+      </span>
+    </header>
+    <p id="statusDetail" class="detail"></p>
+
+    <section class="card">
+      <div class="card-head">
+        <span>Loss</span>
+        <span id="lossValue" class="mono">—</span>
+      </div>
+      <svg id="lossChart" class="chart" viewBox="0 0 300 90" preserveAspectRatio="none" role="img" aria-label="Loss curve">
+        <polyline id="lossLine" fill="none" stroke-width="1.5" points="" />
+      </svg>
+    </section>
+
+    <section class="grid">
+      <div class="stat">
+        <div class="stat-label">Epoch</div>
+        <div id="epoch" class="stat-value mono">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Step</div>
+        <div id="step" class="stat-value mono">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">GPU Temp</div>
+        <div id="temp" class="stat-value mono">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Tokens/sec</div>
+        <div id="tps" class="stat-value mono">—</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <span>VRAM</span>
+        <span id="vramText" class="mono">—</span>
+      </div>
+      <div class="bar">
+        <div id="vramFill" class="bar-fill"></div>
+      </div>
+    </section>
+
+    <script nonce="%NONCE%" src="%SCRIPT_URI%"></script>
+  </body>
+</html>

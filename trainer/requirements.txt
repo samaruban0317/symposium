@@ -1,3 +1,6 @@
 torch>=2.2
 fastapi>=0.110
 uvicorn[standard]>=0.29
+# Optional: GPU temperature for the IDE Engine Tracker. VRAM is read via torch;
+# temperature needs NVML. Safe to omit — the trainer just skips the temp field.
+# pynvml>=11.5

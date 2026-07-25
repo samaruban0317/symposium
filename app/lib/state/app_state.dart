@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../engine/ollama_engine.dart';
 import '../models/chat.dart';
 import '../models/conversation.dart';
 import '../net/protocol.dart';
 import 'attachments_state.dart';
+import 'auth_state.dart';
 import 'history_state.dart';
 
 /// Where the app points — an endpoint is just a base URL. It can be typed by
@@ -26,11 +29,16 @@ final adminTokenProvider = StateProvider<String?>((ref) => null);
 final engineProvider = Provider<OllamaEngine>((ref) {
   final code = ref.watch(pairingCodeProvider);
   final admin = ref.watch(adminTokenProvider);
+  // When signed in, ride the Supabase JWT along as a Bearer token so a host
+  // that trusts our Supabase upgrades us from guest to the student tier. It's
+  // harmless on the local engine and on hosts that don't enable student tier.
+  final jwt = ref.watch(studentJwtProvider);
   return OllamaEngine(
     ref.watch(endpointProvider),
     headers: {
       if (code != null) kPairingHeader: code,
       if (admin != null) kAdminHeader: admin,
+      if (jwt != null) 'Authorization': 'Bearer $jwt',
     },
   );
 });
@@ -43,9 +51,94 @@ final modelsProvider = FutureProvider<List<ModelInfo>>(
   (ref) => ref.watch(engineProvider).listModels(),
 );
 
+/// The models installed on THIS machine's local engine, regardless of where
+/// the client is currently pointed. Used by the host-controls "default model"
+/// picker so an admin sharing their PC chooses from what they actually have.
+final localModelsProvider = FutureProvider<List<ModelInfo>>(
+  (ref) => OllamaEngine('http://127.0.0.1:11434').listModels(),
+);
+
+/// What a paired host tells a joining client about itself: its resolved tier,
+/// the guest small-model allowlist, and — the key bit — the `default_model`
+/// the host admin pinned. Only meaningful when connected to a host (i.e. a
+/// pairing code is set); null when talking to the local engine.
+class HostConfig {
+  final String tier;
+  final List<String> smallModels;
+  final String defaultModel;
+
+  const HostConfig({
+    this.tier = 'guest',
+    this.smallModels = const [],
+    this.defaultModel = '',
+  });
+
+  /// True if [model] is one a guest may chat with (case-insensitive prefix
+  /// match — mirrors the host's own allowlist check). An empty allowlist means
+  /// "no restriction advertised", so everything passes.
+  bool guestAllows(String model) {
+    if (smallModels.isEmpty) return true;
+    final m = model.toLowerCase();
+    return smallModels.any((a) => m.startsWith(a.toLowerCase()));
+  }
+}
+
+/// Fetched from `GET <host>/v1/mobile/config` whenever we're paired to a host.
+/// Null (no request) when on the local engine. Failures resolve to null rather
+/// than throwing — the client just falls back to its own model default.
+final hostConfigProvider = FutureProvider<HostConfig?>((ref) async {
+  final code = ref.watch(pairingCodeProvider);
+  if (code == null) return null; // local engine — no host to ask
+  final base = ref.watch(endpointProvider);
+  final admin = ref.watch(adminTokenProvider);
+  try {
+    final res = await http.get(
+      Uri.parse('$base/v1/mobile/config'),
+      headers: {
+        kPairingHeader: code,
+        if (admin != null) kAdminHeader: admin,
+      },
+    ).timeout(const Duration(seconds: 5));
+    if (res.statusCode != 200) return null;
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    return HostConfig(
+      tier: j['tier'] as String? ?? 'guest',
+      smallModels:
+          (j['small_models'] as List? ?? const []).map((e) => '$e').toList(),
+      defaultModel: j['default_model'] as String? ?? '',
+    );
+  } catch (_) {
+    return null;
+  }
+});
+
+/// The active model. Defaulting rules, in order:
+///   1. The host admin's pinned `default_model`, if it's actually available.
+///   2. When we're a guest, the first model the host's allowlist permits — so
+///      a phone never lands on a model it can't chat with (the silent-403 dead
+///      end this fixes).
+///   3. Otherwise the first available model.
+/// Re-derived when the model list or host config changes (i.e. on a fresh
+/// join); a manual pick via the sidebar overrides until then.
 final selectedModelProvider = StateProvider<String?>((ref) {
   final models = ref.watch(modelsProvider).valueOrNull;
-  return models != null && models.isNotEmpty ? models.first.name : null;
+  if (models == null || models.isEmpty) return null;
+  final names = models.map((m) => m.name).toList();
+  final cfg = ref.watch(hostConfigProvider).valueOrNull;
+
+  if (cfg != null) {
+    // 1. Honour the admin's pin when the model is present on the host.
+    if (cfg.defaultModel.isNotEmpty && names.contains(cfg.defaultModel)) {
+      return cfg.defaultModel;
+    }
+    // 2. Guests: pick the first model they're actually allowed to use.
+    if (cfg.tier == 'guest') {
+      final allowed = names.where(cfg.guestAllows);
+      if (allowed.isNotEmpty) return allowed.first;
+    }
+  }
+  // 3. Fall back to the first model.
+  return names.first;
 });
 
 /// Sampling knobs + system prompt, edited in the parameter lab. Read at send

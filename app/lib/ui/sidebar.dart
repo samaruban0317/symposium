@@ -8,9 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../engine/ollama_probe.dart';
 import '../models/conversation.dart';
 import '../models/source.dart';
+import '../auth/auth_service.dart';
 import '../net/host_limits.dart';
 import '../net/protocol.dart';
 import '../state/app_state.dart';
+import '../state/auth_state.dart';
 import '../state/arena_state.dart';
 import '../state/history_state.dart';
 import '../state/net_state.dart';
@@ -192,6 +194,8 @@ class Sidebar extends ConsumerWidget {
             child: const _NetworkSection(),
           ),
           if (pull != null) _PullBanner(pull: pull),
+          const Divider(height: 1),
+          const _AccountRow(),
           const Divider(height: 1),
           InkWell(
             onTap: () => showSymAbout(context),
@@ -1337,6 +1341,99 @@ class _NetworkSection extends ConsumerWidget {
 
 /// The "router admin page" for a host: set the caps and watch live usage.
 /// Collapsible so it never dominates the panel; edits are pushed onto the
+/// Optional Google sign-in. Signed out → a "Sign in with Google" button (guest
+/// tier still works). Signed in → the account email + a sign-out affordance.
+/// The JWT is wired into the engine via [studentJwtProvider], so signing in
+/// silently upgrades host requests to the student tier.
+class _AccountRow extends ConsumerStatefulWidget {
+  const _AccountRow();
+
+  @override
+  ConsumerState<_AccountRow> createState() => _AccountRowState();
+}
+
+class _AccountRowState extends ConsumerState<_AccountRow> {
+  bool _busy = false;
+
+  Future<void> _signIn() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(authControllerProvider.notifier).signIn();
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Sign-in failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(authControllerProvider);
+
+    if (session != null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+        child: Row(
+          children: [
+            Icon(Icons.verified_user_outlined, size: 15, color: Sym.teal),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SIGNED IN · STUDENT',
+                      style: Sym.label(color: Sym.tealDim, size: 8.5)),
+                  const SizedBox(height: 1),
+                  Text(session.email ?? 'account',
+                      style: Sym.mono(size: 11, color: Sym.ink),
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Sign out',
+              iconSize: 15,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.logout, color: Sym.inkFaint),
+              onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: OutlinedButton.icon(
+        onPressed: _busy ? null : _signIn,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Sym.ink,
+          side: BorderSide(color: Sym.hairline),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
+        icon: _busy
+            ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Sym.teal),
+              )
+            : Icon(Icons.login, size: 15, color: Sym.teal),
+        label: Text(_busy ? 'OPENING BROWSER…' : 'SIGN IN WITH GOOGLE',
+            style: Sym.label(color: Sym.inkDim)),
+      ),
+    );
+  }
+}
+
 /// running server immediately (no restart) via [HostController.updateLimits].
 class _HostControls extends ConsumerStatefulWidget {
   const _HostControls();
@@ -1399,6 +1496,51 @@ class _HostControlsState extends ConsumerState<_HostControls> {
     );
   }
 
+  /// The host-pinned default model: a dropdown of the machine's local models.
+  /// Picking one writes it into [HostLimits.defaultModel] and pushes it to the
+  /// running server live, so every client that joins from now on auto-selects
+  /// it (see `selectedModelProvider`). "Let the client choose" clears the pin.
+  Widget _modelField(HostLimits limits) {
+    final installed = ref.watch(localModelsProvider).valueOrNull ?? const [];
+    final names = installed.map((m) => m.name).toList();
+    // Guard against a pinned model that's since been deleted.
+    final value = names.contains(limits.defaultModel) ? limits.defaultModel : '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, top: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text('Default model',
+                style: Sym.mono(size: 10.5, color: Sym.inkDim)),
+          ),
+          DropdownButton<String>(
+            value: value,
+            isDense: true,
+            underline: const SizedBox.shrink(),
+            dropdownColor: Sym.surfaceRaised,
+            style: Sym.mono(size: 11, color: Sym.ink),
+            items: [
+              DropdownMenuItem(
+                value: '',
+                child: Text('client chooses',
+                    style: Sym.mono(size: 11, color: Sym.inkDim)),
+              ),
+              for (final n in names)
+                DropdownMenuItem(value: n, child: Text(n)),
+            ],
+            onChanged: (v) {
+              final current = ref.read(hostLimitsProvider);
+              ref
+                  .read(hostControllerProvider.notifier)
+                  .updateLimits(current.copyWith(defaultModel: v ?? ''));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _stat(String label, String value) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1445,6 +1587,7 @@ class _HostControlsState extends ConsumerState<_HostControls> {
               (b, v) => b.copyWith(guestPerHour: v)),
           _numField('Student req/day', limits.studentPerDay,
               (b, v) => b.copyWith(studentPerDay: v)),
+          _modelField(limits),
           Text('0 = unlimited · press Enter to apply',
               style: Sym.mono(size: 8.5, color: Sym.inkFaint)),
           const SizedBox(height: 10),

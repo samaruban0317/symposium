@@ -38,6 +38,50 @@ def pick_device(requested: str) -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+# Lazily-initialised NVML handle for GPU temperature. torch exposes VRAM but
+# not temperature, so we reach for pynvml if it happens to be installed. None
+# means "not available" — we just skip the temp field. Sentinel False = "not
+# tried yet"; None = "tried, unavailable"; a handle = "ready".
+_nvml_handle: object | None | bool = False
+
+
+def gpu_stats(device: str) -> dict:
+    """Best-effort VRAM (via torch) + temperature (via pynvml if present) for a
+    CUDA device. Returns only the keys it can fill, so a CPU run yields {}."""
+    global _nvml_handle
+    if not device.startswith("cuda") or not torch.cuda.is_available():
+        return {}
+    out: dict = {}
+    try:
+        free, total = torch.cuda.mem_get_info()
+        out["vram_used_mb"] = int((total - free) / (1024 * 1024))
+        out["vram_total_mb"] = int(total / (1024 * 1024))
+    except Exception:
+        pass
+    if _nvml_handle is False:  # first call — try to bring NVML up once
+        try:
+            import pynvml  # type: ignore
+
+            pynvml.nvmlInit()
+            _nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(
+                torch.cuda.current_device()
+            )
+        except Exception:
+            _nvml_handle = None
+    if _nvml_handle not in (False, None):
+        try:
+            import pynvml  # type: ignore
+
+            out["gpu_temp_c"] = int(
+                pynvml.nvmlDeviceGetTemperature(
+                    _nvml_handle, pynvml.NVML_TEMPERATURE_GPU
+                )
+            )
+        except Exception:
+            pass
+    return out
+
+
 class Trainer:
     """Owns one training run: model, optimizer, data, checkpoints."""
 
@@ -119,6 +163,7 @@ class Trainer:
                         loss=round(loss.item(), 4),
                         tok_per_sec=round(tokens_seen / elapsed, 1) if elapsed > 0 else 0.0,
                         lr=cfg.lr,
+                        **gpu_stats(self.device),
                     )
                 )
                 if step % cfg.sample_interval == 0 or step == cfg.steps:

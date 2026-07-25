@@ -43,6 +43,13 @@ class HostLimits {
   /// Models a guest may chat with. Students/admins are unrestricted.
   final List<String> guestModels;
 
+  /// The model the host recommends every joining client start on. Empty = no
+  /// preference (clients fall back to their own first-model default). This is
+  /// how the admin says "use THIS model" — surfaced to clients via
+  /// `/v1/mobile/config`, so a phone that just paired lands on the right model
+  /// instead of blindly picking the first (possibly non-allowlisted) one.
+  final String defaultModel;
+
   const HostLimits({
     this.maxConnections = 8,
     this.maxUsersPerDay = 25,
@@ -50,6 +57,7 @@ class HostLimits {
     this.guestPerHour = 15,
     this.studentPerDay = 150,
     this.guestModels = kDefaultGuestModels,
+    this.defaultModel = '',
   });
 
   /// Sensible "lending a friend some of my PC" defaults.
@@ -62,6 +70,7 @@ class HostLimits {
     int? guestPerHour,
     int? studentPerDay,
     List<String>? guestModels,
+    String? defaultModel,
   }) =>
       HostLimits(
         maxConnections: maxConnections ?? this.maxConnections,
@@ -70,6 +79,7 @@ class HostLimits {
         guestPerHour: guestPerHour ?? this.guestPerHour,
         studentPerDay: studentPerDay ?? this.studentPerDay,
         guestModels: guestModels ?? this.guestModels,
+        defaultModel: defaultModel ?? this.defaultModel,
       );
 
   Map<String, dynamic> toJson() => {
@@ -79,6 +89,7 @@ class HostLimits {
         'guest_per_hour': guestPerHour,
         'student_per_day': studentPerDay,
         'guest_models': guestModels,
+        'default_model': defaultModel,
       };
 
   /// Tolerant parser — any missing field keeps the current default, so a
@@ -92,6 +103,7 @@ class HostLimits {
     }
 
     final models = j['guest_models'];
+    final def = j['default_model'];
     return HostLimits(
       maxConnections: asInt('max_connections', base.maxConnections),
       maxUsersPerDay: asInt('max_users_per_day', base.maxUsersPerDay),
@@ -101,6 +113,7 @@ class HostLimits {
       guestModels: models is List && models.isNotEmpty
           ? models.map((e) => e.toString()).toList()
           : base.guestModels,
+      defaultModel: def is String ? def : base.defaultModel,
     );
   }
 }

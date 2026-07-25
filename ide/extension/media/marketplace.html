@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="%CSP%" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="%STYLE_URI%" rel="stylesheet" />
+    <title>Models</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="brand">Symposium · Models</span>
+      <button id="connectBtn" class="ghost" title="Connect a GPU">$ Connect a GPU</button>
+    </header>
+
+    <p id="endpoint" class="detail">Loading…</p>
+
+    <section class="pullbox">
+      <label class="pull-label" for="pullName">Download any model by name</label>
+      <div class="pull-row">
+        <input
+          id="pullName"
+          type="text"
+          class="input mono"
+          placeholder="e.g. llama3.1:8b"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="pullBtn" class="primary">Download</button>
+      </div>
+      <p class="hint">Free to download whatever model you want — any Ollama model name works.</p>
+    </section>
+
+    <div class="searchrow">
+      <input id="search" type="text" class="input" placeholder="Search models…" autocomplete="off" />
+    </div>
+
+    <section>
+      <h2 class="section-title">Installed</h2>
+      <div id="installed" class="list">
+        <p class="empty">No models installed yet.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Recommended</h2>
+      <div id="catalog" class="list"></div>
+    </section>
+
+    <script nonce="%NONCE%" src="%SCRIPT_URI%"></script>
+  </body>
+</html>

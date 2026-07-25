@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="%CSP%" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="%STYLE_URI%" rel="stylesheet" />
+    <title>Room Admin</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="brand">Symposium</span>
+      <span class="pill">🛜 Room Admin</span>
+    </header>
+
+    <!-- Not signed in as admin -->
+    <section id="signInCard" class="card" hidden>
+      <div class="card-title">🔑 Admin sign-in</div>
+      <p class="hint">This page is the “router settings” for your team: decide who can commit and how many AI credits each person gets. Paste your admin token to unlock it.</p>
+      <input id="adminToken" class="input" type="password" placeholder="Admin token" autocomplete="off" />
+      <button id="signInBtn" class="btn btn-primary">Unlock controls</button>
+    </section>
+
+    <!-- No room selected -->
+    <section id="noRoomCard" class="card" hidden>
+      <div class="card-title">No room yet</div>
+      <p class="hint">Create or join a room in the “Team &amp; Git” panel first, then come back here to manage members.</p>
+    </section>
+
+    <!-- Live stats -->
+    <section id="statsCard" class="card" hidden>
+      <div class="card-title">📊 Live usage today</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Active now</div><div id="inFlight" class="stat-value">—</div></div>
+        <div class="stat"><div class="stat-label">Requests today</div><div id="todayTotal" class="stat-value">—</div></div>
+        <div class="stat"><div class="stat-label">People today</div><div id="uniqueUsers" class="stat-value">—</div></div>
+      </div>
+    </section>
+
+    <!-- Roster (the "router device list") -->
+    <section id="rosterCard" class="card" hidden>
+      <div class="card-title">👥 Members</div>
+      <p class="hint">Change anyone live. <b>Committer</b> can save &amp; share; <b>viewer</b> can only look. Credits are per day (0 = unlimited).</p>
+      <ul id="roster" class="roster"></ul>
+      <p id="rosterEmpty" class="tiny" hidden>No members yet — share your room code to invite friends.</p>
+      <p id="offlineNote" class="offline-note" hidden>Relay not reachable — controls are offline right now.</p>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script nonce="%NONCE%" src="%SCRIPT_URI%"></script>
+  </body>
+</html>

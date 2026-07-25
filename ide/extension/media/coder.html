@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="%CSP%" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="%STYLE_URI%" rel="stylesheet" />
+    <title>AI Coder</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="brand">Symposium</span>
+      <span id="vibe" class="vibe vibe--idle">
+        <span class="dot"></span><span id="vibeText" class="mono">0.0 tok/s</span>
+      </span>
+    </header>
+
+    <div class="controls">
+      <select id="provider" class="provider" aria-label="Model provider"></select>
+      <button id="newChat" class="btn btn--ghost" title="Start a fresh conversation">New chat</button>
+    </div>
+
+    <div class="toggles">
+      <label class="toggle">
+        <input type="checkbox" id="agentMode" />
+        <span>Agent mode</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="planFirst" />
+        <span>Plan first</span>
+      </label>
+    </div>
+
+    <main id="transcript" class="transcript" aria-live="polite"></main>
+
+    <footer class="composer">
+      <textarea
+        id="input"
+        class="input"
+        rows="2"
+        placeholder="Ask Astra to build something… (Enter to send, Shift+Enter for newline)"
+      ></textarea>
+      <div class="composer-actions">
+        <button id="stop" class="btn btn--stop" hidden>Stop</button>
+        <button id="send" class="btn btn--send">Send</button>
+      </div>
+    </footer>
+
+    <script nonce="%NONCE%" src="%SCRIPT_URI%"></script>
+  </body>
+</html>

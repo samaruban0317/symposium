@@ -1,0 +1,86 @@
+# ── Symposium Coder — fine-tune config ──────────────────────────────────────
+# The knobs for training the "symposium-coder" agentic model. These are the SAME
+# parameters lab/finetune_unsloth.py already uses (Unsloth QLoRA -> q4_k_m GGUF);
+# this file documents the intended values + the exact command. It is a recipe,
+# not an auto-loaded config — pass the values as CLI flags (shown at the bottom).
+#
+# GPU REQUIRED. Runs on the RTX 4050 (1.5B) or a GCP L4/T4 spot VM (1.5B–3B).
+# See lab/README.md (hardware table) and deploy/gcp-quickstart.md (spot VM).
+# Training itself is DEFERRED until a GPU is available — see agent-finetune/README.md.
+
+# --- Model identity -----------------------------------------------------------
+output_name: symposium-coder        # ollama model name; matches SYMPOSIUM_MODEL
+                                     # in ide/extension/src/ai/providers/symposium.ts
+
+# --- Base model ---------------------------------------------------------------
+# A small CODER base so it's already strong at code; LoRA only steers format +
+# persona. 1.5B fits a 6GB laptop GPU in 4-bit; bump to 3B on a T4/L4.
+base_model: unsloth/Qwen2.5-Coder-1.5B-Instruct
+# Alternatives (all coder bases, drop-in via --base):
+#   unsloth/Qwen2.5-Coder-3B-Instruct        # stronger, needs ~8GB+ VRAM (T4/L4)
+#   unsloth/Llama-3.2-3B-Instruct            # the lab default (general, not coder)
+# NOTE on chat template: finetune_unsloth.py currently pins get_chat_template(
+#   tokenizer, chat_template="llama-3.1"). Qwen bases ship their own ChatML
+#   template, so for a Qwen base either (a) pass chat_template="qwen-2.5" in the
+#   trainer, or (b) stay on the Llama-3.2-3B base to use it as-is. Documented so
+#   whoever runs it on a GPU doesn't get a silent template mismatch.
+
+# --- LoRA / QLoRA (matches finetune_unsloth.py defaults) -----------------------
+load_in_4bit: true                  # QLoRA — fits small VRAM
+lora_r: 16
+lora_alpha: 16
+lora_dropout: 0.0
+target_modules:                     # attention + MLP projections
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+use_gradient_checkpointing: unsloth
+random_state: 42
+
+# --- Sequence / batch ---------------------------------------------------------
+# Longer than the lab's 2048 default: our examples include file contents +
+# tool_call JSON, so give them room. Still comfortable on a 6GB card in 4-bit.
+max_seq_length: 4096
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4      # effective batch = 8
+
+# --- Schedule -----------------------------------------------------------------
+# Small dataset (~40 seed examples). Prefer a few epochs over long step counts;
+# with ~40 lines, 3 epochs ≈ 3*40/8 ≈ 15 optimiser steps, so use max_steps to
+# oversample the persona/format a bit. Watch loss — stop if it flatlines.
+epochs: 3                           # conceptual target
+max_steps: 120                      # what finetune_unsloth.py actually reads (--steps)
+learning_rate: 0.0002               # 2e-4
+warmup_steps: 5
+lr_scheduler_type: linear
+weight_decay: 0.01
+optim: adamw_8bit
+logging_steps: 1
+seed: 42
+
+# --- Export -------------------------------------------------------------------
+# finetune_unsloth.py merges LoRA + quantises to a q4_k_m GGUF and writes a
+# Modelfile, ready for `ollama create`. See export_to_ollama.md for the full
+# path (merge -> GGUF -> Modelfile -> ollama create -> auto-appears in the
+# provider dropdown / marketplace).
+quantization_method: q4_k_m
+gguf_out: symposium-coder           # dir containing the .gguf + Modelfile
+lora_out: symposium-coder-lora      # LoRA adapter dir (keep for re-quantising)
+
+# --- The exact command (from the lab/ directory) ------------------------------
+# 1) build the data:
+#    python agent-finetune/build_dataset.py \
+#        --seed agent-finetune/dataset/seed.jsonl --out data/symposium_agent.jsonl
+# 2) fine-tune with the EXISTING lab trainer:
+#    python finetune_unsloth.py \
+#        --data data/symposium_agent.jsonl \
+#        --base unsloth/Qwen2.5-Coder-1.5B-Instruct \
+#        --out  symposium-coder-lora \
+#        --gguf symposium-coder \
+#        --max-seq 4096 --steps 120
+# 3) serve it:
+#    ollama create symposium-coder -f symposium-coder/Modelfile

@@ -1,0 +1,304 @@
+{
+  "name": "symposium-ml",
+  "displayName": "Symposium ML",
+  "description": "Remote ML training monitor for the Symposium rig — live loss curves, VRAM/GPU telemetry, rig logs, and one-key 'start a training run on the rig'.",
+  "version": "0.1.0",
+  "publisher": "visionarysparks",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samaruban0317/symposium.git",
+    "directory": "ide/extension"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "symposium",
+    "machine learning",
+    "training",
+    "gpu",
+    "llm",
+    "visionary sparks"
+  ],
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#0E1516",
+    "theme": "dark"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:symposium.coder",
+    "onView:symposium.explain",
+    "onView:symposium.collab",
+    "onView:symposium.admin",
+    "onView:symposium.marketplace",
+    "onView:symposium.engineTracker",
+    "onCommand:symposium.startRun",
+    "onCommand:symposium.connectLogs",
+    "onCommand:symposium.disconnectLogs",
+    "onCommand:symposium.addModelKey",
+    "onCommand:symposium.explainSelection",
+    "onCommand:symposium.saveAndShare",
+    "onCommand:symposium.connectGpu",
+    "onCommand:symposium.openMarketplace",
+    "onCommand:symposium.newRoom",
+    "onCommand:symposium.joinRoom"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "symposium",
+          "title": "Symposium",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "symposium": [
+        {
+          "type": "webview",
+          "id": "symposium.coder",
+          "name": "AI Coder",
+          "contextualTitle": "Symposium"
+        },
+        {
+          "type": "webview",
+          "id": "symposium.explain",
+          "name": "Explain",
+          "contextualTitle": "Symposium"
+        },
+        {
+          "type": "webview",
+          "id": "symposium.collab",
+          "name": "Team & Git",
+          "contextualTitle": "Symposium"
+        },
+        {
+          "type": "webview",
+          "id": "symposium.admin",
+          "name": "Admin",
+          "contextualTitle": "Symposium"
+        },
+        {
+          "type": "webview",
+          "id": "symposium.marketplace",
+          "name": "Models",
+          "contextualTitle": "Symposium"
+        },
+        {
+          "type": "webview",
+          "id": "symposium.engineTracker",
+          "name": "Engine Tracker",
+          "contextualTitle": "Symposium"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "symposium.startRun",
+        "title": "Symposium: Start Training Run on Rig",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.connectLogs",
+        "title": "Symposium: Connect Rig Logs",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.disconnectLogs",
+        "title": "Symposium: Disconnect Rig Logs",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.addModelKey",
+        "title": "Symposium: Add AI Model Key…",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.explainSelection",
+        "title": "Symposium: Explain This Code",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.saveAndShare",
+        "title": "Symposium: Save & Share (Commit)",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.connectGpu",
+        "title": "Symposium: Connect a GPU…",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.openMarketplace",
+        "title": "Symposium: Browse Models",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.newRoom",
+        "title": "Symposium: New Team Room",
+        "category": "Symposium"
+      },
+      {
+        "command": "symposium.joinRoom",
+        "title": "Symposium: Join Team Room…",
+        "category": "Symposium"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "symposium.startRun",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "symposium.active"
+      },
+      {
+        "command": "symposium.explainSelection",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "symposium.saveAndShare",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "symposium.active"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "symposium.explainSelection",
+          "group": "symposium@1",
+          "when": "editorTextFocus"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Symposium ML",
+      "properties": {
+        "symposium.rig.url": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "markdownDescription": "Base HTTP(S) URL of the Symposium training service (the `trainer/` FastAPI server, e.g. `uvicorn trainer.server:app --host 0.0.0.0 --port 8765`). The extension derives the run endpoint (`POST <url>/runs`) and the live metric stream (`ws(s)://…/runs/latest/metrics`) from this. Point it at your gaming rig's LAN address to monitor training remotely."
+        },
+        "symposium.rig.token": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional bearer token sent as `Authorization: Bearer <token>` on rig HTTP requests and WebSocket handshakes. Leave empty for an open LAN rig."
+        },
+        "symposium.rig.autoConnect": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Automatically connect the **Symposium Rig** log channel to the rig's live run stream when the extension activates."
+        },
+        "symposium.ai.local.url": {
+          "type": "string",
+          "default": "http://127.0.0.1:47475",
+          "markdownDescription": "Primary local-model endpoint — the **Symposium host proxy** (OpenAI-compatible `POST /v1/chat/completions`). Point at a LAN/cloud host to use a friend's or a rented GPU."
+        },
+        "symposium.ai.local.fallbackUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434",
+          "markdownDescription": "Fallback local-model endpoint — a raw **Ollama** server, used when the Symposium host proxy is unreachable."
+        },
+        "symposium.ai.local.pairingCode": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "6-digit pairing code for the Symposium host proxy (sent as `x-symposium-code`). Leave blank for a raw/open Ollama endpoint."
+        },
+        "symposium.ai.local.adminToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Admin token for the Symposium host proxy (sent as `x-symposium-admin` on management actions like pulling a model). Leave blank if you are a viewer on someone else's host."
+        },
+        "symposium.ai.defaultProvider": {
+          "type": "string",
+          "default": "local",
+          "enum": ["local", "anthropic", "gemini", "openai", "symposium"],
+          "markdownDescription": "Which AI brain new panels select by default. **local** is free and offline; cloud providers only appear once you add a key via *Symposium: Add AI Model Key…*."
+        },
+        "symposium.ai.cloudModel.anthropic": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Claude model id to use (blank ⇒ provider default). E.g. `claude-sonnet-4-6`."
+        },
+        "symposium.ai.cloudModel.gemini": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Gemini model id to use (blank ⇒ provider default)."
+        },
+        "symposium.ai.cloudModel.openai": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI model id to use (blank ⇒ provider default)."
+        },
+        "symposium.collab.relayUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:47475",
+          "markdownDescription": "Base URL of the Symposium relay that fronts the Supabase-backed team roster, credits, and merge requests."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "symposium.gettingStarted",
+        "title": "Get Started with Symposium",
+        "description": "Set up your rig, open the Engine Tracker, and train your first model — in about a minute.",
+        "steps": [
+          {
+            "id": "symposium.welcome",
+            "title": "Welcome to Symposium IDE",
+            "description": "Your own editor by Visionary Sparks, wired to run and train AI.",
+            "media": { "markdown": "media/walkthrough/welcome.md" }
+          },
+          {
+            "id": "symposium.openTracker",
+            "title": "Open the Engine Tracker",
+            "description": "Watch training live — loss, VRAM, GPU temp, tokens/sec.\n[Open Engine Tracker](command:symposium.engineTracker.focus)",
+            "media": { "markdown": "media/walkthrough/tracker.md" },
+            "completionEvents": ["onCommand:symposium.engineTracker.focus"]
+          },
+          {
+            "id": "symposium.setRig",
+            "title": "Point at your rig",
+            "description": "Tell Symposium where the trainer is running.\n[Open Symposium settings](command:workbench.action.openSettings?%22symposium.rig%22)",
+            "media": { "markdown": "media/walkthrough/rig.md" }
+          },
+          {
+            "id": "symposium.firstRun",
+            "title": "Start your first run",
+            "description": "Pick a model size and go.\n[Start Training Run](command:symposium.startRun)",
+            "media": { "markdown": "media/walkthrough/train.md" },
+            "completionEvents": ["onCommand:symposium.startRun"]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p ./",
+    "vscode:prepublish": "npm run compile -- --production",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.5.10",
+    "@vscode/vsce": "^2.27.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.4.5"
+  }
+}

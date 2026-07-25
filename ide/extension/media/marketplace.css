@@ -1,0 +1,263 @@
+/* Model Marketplace — reuses the Engine Tracker's teal-accent conventions
+   (var(--vscode-*), .bar / .bar-fill progress). Lightweight, no framework. */
+:root {
+  --teal: #2ab7b0;
+  --teal-dim: #1aa6a0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--vscode-foreground);
+  background: transparent;
+  padding: 8px 10px 20px;
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.brand {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--teal);
+}
+
+.detail {
+  min-height: 14px;
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  word-break: break-all;
+}
+
+.detail.err {
+  color: var(--vscode-errorForeground, #c74e4e);
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  padding: 4px 10px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.primary {
+  background: var(--vscode-button-background, var(--teal-dim));
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground, var(--teal));
+}
+
+.ghost {
+  background: transparent;
+  color: var(--teal);
+  border-color: var(--vscode-widget-border, rgba(127, 127, 127, 0.35));
+  font-weight: 600;
+}
+
+.ghost:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12));
+}
+
+/* Inputs */
+.input {
+  font-family: inherit;
+  font-size: 12px;
+  width: 100%;
+  padding: 5px 8px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, rgba(127, 127, 127, 0.35)));
+  border-radius: 5px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--teal);
+}
+
+.pullbox {
+  background: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--vscode-widget-border, transparent);
+  border-radius: 6px;
+  padding: 8px 10px 6px;
+  margin-bottom: 12px;
+}
+
+.pull-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 5px;
+}
+
+.pull-row {
+  display: flex;
+  gap: 6px;
+}
+
+.pull-row .input {
+  flex: 1;
+}
+
+.hint {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.searchrow {
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin: 2px 0;
+}
+
+/* One model card */
+.model {
+  background: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--vscode-widget-border, transparent);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.model-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-name {
+  font-weight: 600;
+}
+
+.model-sub {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.model-name .tag {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 10px;
+  color: var(--teal);
+  border: 1px solid var(--teal);
+}
+
+.model-desc {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  opacity: 0.9;
+}
+
+.model-actions {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-actions .grow {
+  flex: 1;
+}
+
+.status-note {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  min-height: 14px;
+}
+
+.status-note.err {
+  color: var(--vscode-errorForeground, #c74e4e);
+}
+
+.status-note.ok {
+  color: var(--teal);
+}
+
+/* Progress bar — same look as engineTracker's VRAM bar. */
+.bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--vscode-progressBar-background, rgba(127, 127, 127, 0.2));
+  overflow: hidden;
+  margin-top: 6px;
+  display: none;
+}
+
+.bar.show {
+  display: block;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--teal-dim), var(--teal));
+  transition: width 0.3s ease;
+}
+
+.bar-fill.indeterminate {
+  width: 35%;
+  animation: slide 1.2s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% {
+    margin-left: -35%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}

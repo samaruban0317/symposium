@@ -1,0 +1,63 @@
+{
+  "//": "SYMPOSIUM IDE — VSCodium product.json branding overrides (Visionary Sparks).",
+  "//_HOW_IT_MERGES": "apply-branding.ps1 deep-merges these keys into the VSCodium repo-root ./product.json. VSCodium's prepare_vscode.sh then runs `jq -s '.[0] * .[1]' vscode/product.json ../product.json`, so THESE keys win over both upstream VS Code and VSCodium defaults. Do NOT add `extensionsGallery` here — prepare_vscode.sh sets OpenVSX itself; overriding it would break the marketplace.",
+
+  "nameShort": "Symposium",
+  "//nameShort": "Short product name. Drives APP_NAME in the build scripts, the .exe/.msi/.zip filenames, the app folder name, Start-menu label, and the taskbar title.",
+
+  "nameLong": "Symposium IDE",
+  "//nameLong": "Full product name shown in About dialog, window title suffix, and installer welcome text.",
+
+  "applicationName": "symposium",
+  "//applicationName": "The CLI binary / executable base name (symposium.exe, and the `symposium` command on PATH). Lowercase, no spaces.",
+
+  "serverApplicationName": "symposium-server",
+  "//serverApplicationName": "Name of the remote/server (REH) binary. Only relevant if you build the Remote Extension Host; harmless to set.",
+
+  "serverDataFolderName": ".symposium-server",
+  "//serverDataFolderName": "Home-dir folder the remote server uses on a target host (~/.symposium-server).",
+
+  "dataFolderName": ".symposium",
+  "//dataFolderName": "Per-user data dir for CLI-installed extensions etc. (~/.symposium). Keep the leading dot.",
+
+  "win32AppUserModelId": "VisionarySparks.Symposium",
+  "//win32AppUserModelId": "Windows AppUserModelID — groups taskbar windows & jump lists under one identity. Reverse-ish dotted id, no spaces.",
+
+  "win32MutexName": "symposium",
+  "//win32MutexName": "Single-instance mutex name. Must be unique vs. VS Code / VSCodium so instances don't collide. Lowercase, no spaces.",
+
+  "win32DirName": "Symposium IDE",
+  "//win32DirName": "Default install directory leaf (e.g. C:\\Program Files\\Symposium IDE).",
+
+  "win32NameVersion": "Symposium IDE",
+  "//win32NameVersion": "Display name used in Windows 'Apps & features' / uninstall registry (version appended by installer).",
+
+  "win32RegValueName": "Symposium",
+  "//win32RegValueName": "Registry value/key leaf under HKCU/HKLM Software for install metadata & file associations. No spaces.",
+
+  "win32ShellNameShort": "Symposium IDE",
+  "//win32ShellNameShort": "Text for the Explorer right-click 'Open with Symposium IDE' context-menu entries.",
+
+  "win32TunnelServiceMutex": "symposium-tunnelservice",
+  "win32TunnelMutex": "symposium-tunnel",
+  "//win32Tunnel*": "Mutex names for the tunnel/remote CLI. Set for uniqueness even though tunnels are unused; safe to keep.",
+
+  "darwinBundleIdentifier": "in.visionarysparks.symposium",
+  "//darwinBundleIdentifier": "macOS CFBundleIdentifier for the .app (only used if you ever build the mac target).",
+
+  "urlProtocol": "symposium",
+  "//urlProtocol": "Custom URI scheme the app registers (symposium://...). Used for deep links / OAuth callbacks into the IDE.",
+
+  "reportIssueUrl": "https://github.com/samaruban0317/symposium/issues/new",
+  "//reportIssueUrl": "Where the built-in 'Report Issue' command sends users. Point at the public Symposium repo issues.",
+
+  "licenseName": "MIT",
+  "//licenseName": "SPDX license id shown in About / installer. The wrapper (this rebrand) and VSCodium are MIT.",
+
+  "licenseUrl": "https://github.com/samaruban0317/symposium/blob/main/LICENSE",
+  "//licenseUrl": "Link to the license text. Replace with the actual LICENSE path in the public Symposium repo.",
+
+  "//_LEAVE_UNSET": "Do not set: extensionsGallery (OpenVSX handled by prepare_vscode.sh), quality, commit, date, checksums, updateUrl (self-updates need infra you don't have — leave off so the IDE stays offline/manual-update).",
+
+  "//_OPENVSX_NOTE": "The built IDE's Extensions view talks to https://open-vsx.org (Eclipse Open VSX), NOT the Microsoft Marketplace (Microsoft's ToS forbid non-VS-Code clients using it). Fewer/older extensions than VS Marketplace, but legally clean and already wired by VSCodium."
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="%CSP%" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="%STYLE_URI%" rel="stylesheet" />
+    <title>Explain</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="brand">Explain</span>
+      <span class="subtle">Symposium</span>
+    </header>
+
+    <p class="lead">Point at any code and get it in plain words. Pick who it's for:</p>
+
+    <div class="audience" role="radiogroup" aria-label="Who is this explanation for?">
+      <button class="aud" data-aud="kid" role="radio" aria-checked="false">🧒<span>Kid</span></button>
+      <button class="aud is-on" data-aud="student" role="radio" aria-checked="true">🎓<span>Student</span></button>
+      <button class="aud" data-aud="engineer" role="radio" aria-checked="false">🛠️<span>Engineer</span></button>
+    </div>
+
+    <div class="ctx" id="ctx">No file open yet.</div>
+
+    <div class="actions">
+      <button id="explainFile" class="btn">Explain this file</button>
+      <button id="explainSel" class="btn">Explain selection</button>
+      <button id="diagram" class="btn btn-ghost">Show workflow diagram</button>
+    </div>
+
+    <section id="out" class="out" aria-live="polite">
+      <p class="hint" id="hint">This code, in plain words: pick an option above and I'll walk you through it. No jargon, promise. 🌱</p>
+      <div id="answer" class="answer" hidden></div>
+      <div id="thinking" class="thinking" hidden><span class="d"></span><span class="d"></span><span class="d"></span></div>
+    </section>
+
+    <section id="diagramWrap" class="diagram-wrap" hidden>
+      <div class="diagram-head">Workflow diagram</div>
+      <div id="mermaid" class="mermaid-box"></div>
+    </section>
+
+    <p id="err" class="err" hidden></p>
+
+    %EXTRA_SCRIPTS%
+    <script nonce="%NONCE%" src="%SCRIPT_URI%"></script>
+  </body>
+</html>

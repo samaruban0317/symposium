@@ -404,6 +404,10 @@ class HostServer {
       ..write(jsonEncode({
         'tier': tier.name,
         'small_models': limits.guestModels,
+        // The model the host admin pinned for joining clients (empty = none).
+        // Clients auto-select this on connect so a paired phone lands on the
+        // right model instead of guessing.
+        'default_model': limits.defaultModel,
         'limits': {
           'guest_per_hour': limits.guestPerHour,
           'student_per_day': limits.studentPerDay,

@@ -166,6 +166,12 @@ class MetricEvent:
     lr: float | None = None
     text: str | None = None
     status: str | None = None
+    # GPU telemetry, attached to "metric" events when training on CUDA so the
+    # IDE's Engine Tracker can draw a VRAM bar + temperature. All optional:
+    # CPU runs (or a torch without NVML) simply omit them.
+    vram_used_mb: int | None = None
+    vram_total_mb: int | None = None
+    gpu_temp_c: int | None = None
 
     def to_dict(self) -> dict:
         return {k: v for k, v in dataclasses.asdict(self).items() if v is not None}

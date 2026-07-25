@@ -11,7 +11,10 @@ API (all JSON):
                                        "device":"auto"}   (all optional)
                                 → {"id": "...", ...status}
     GET  /runs                  list all runs (newest first)
+    GET  /runs/latest           the newest run (IDE convenience; 404 if none)
     GET  /runs/{id}             one run's status + latest metrics
+    WS   /runs/latest/metrics   live stream for the newest run — the IDE's
+                                Engine Tracker uses this so it needn't track ids
     POST /runs/{id}/stop        request a graceful stop (checkpoint is saved)
     WS   /runs/{id}/metrics     live JSON events: {"kind":"metric",...},
                                 {"kind":"sample",...}, {"kind":"status",...}
@@ -129,6 +132,22 @@ def _get(run_id: str) -> Run:
     return run
 
 
+def _latest_run() -> Run | None:
+    """The most recently created run, or None if nothing has been started.
+    Lets the IDE watch "the current run" without tracking ids."""
+    if not RUNS:
+        return None
+    return max(RUNS.values(), key=lambda r: r.created)
+
+
+@app.get("/runs/latest")
+def get_latest_run():
+    run = _latest_run()
+    if run is None:
+        raise HTTPException(status_code=404, detail="no runs yet")
+    return run.to_dict()
+
+
 @app.get("/runs/{run_id}")
 def get_run(run_id: str):
     return _get(run_id).to_dict()
@@ -142,13 +161,10 @@ def stop_run(run_id: str):
     return {"id": run.id, "status": "stop requested"}
 
 
-@app.websocket("/runs/{run_id}/metrics")
-async def metrics_ws(ws: WebSocket, run_id: str):
-    run = RUNS.get(run_id)
-    await ws.accept()
-    if run is None:
-        await ws.close(code=4404, reason=f"no run {run_id!r}")
-        return
+async def _stream_events(ws: WebSocket, run: Run) -> None:
+    """Replay a run's whole event history, then poll for new events, sending
+    each as JSON. Returns when the run reaches a terminal state or the socket
+    drops. Shared by the per-id and 'latest' metric sockets."""
     sent = 0
     try:
         while True:
@@ -165,6 +181,26 @@ async def metrics_ws(ws: WebSocket, run_id: str):
     except WebSocketDisconnect:
         return
     await ws.close()
+
+
+@app.websocket("/runs/latest/metrics")
+async def latest_metrics_ws(ws: WebSocket):
+    run = _latest_run()
+    await ws.accept()
+    if run is None:
+        await ws.close(code=4404, reason="no runs yet")
+        return
+    await _stream_events(ws, run)
+
+
+@app.websocket("/runs/{run_id}/metrics")
+async def metrics_ws(ws: WebSocket, run_id: str):
+    run = RUNS.get(run_id)
+    await ws.accept()
+    if run is None:
+        await ws.close(code=4404, reason=f"no run {run_id!r}")
+        return
+    await _stream_events(ws, run)
 
 
 @app.post("/runs/{run_id}/generate")

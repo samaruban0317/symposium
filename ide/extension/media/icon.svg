@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Symposium placeholder: teal line-graph rising to a spark.
+       Uses currentColor so the Activity Bar tints it (active = brand teal). -->
+  <path d="M3 17 L8 12 L11 15 L16 8"
+        stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M18 3 L18.9 5.1 L21 6 L18.9 6.9 L18 9 L17.1 6.9 L15 6 L17.1 5.1 Z"
+        fill="currentColor"/>
+  <circle cx="8" cy="12" r="1.1" fill="currentColor"/>
+  <circle cx="11" cy="15" r="1.1" fill="currentColor"/>
+</svg>
